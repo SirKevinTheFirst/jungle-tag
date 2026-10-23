@@ -13,6 +13,15 @@ const RIVER_START_Z := -106.0
 const CAVE_CENTER := Vector2(-92.0, 60.0)
 const CAVE_FLOOR := 2.0
 const LOG_CENTER := Vector2(52.0, 92.0)
+# secret cave complex inside the plateau, entered from behind the waterfall
+const SC_CELL := 4.4
+const SC_NX := 16
+const SC_NZ := 6
+const SC_FLOOR := 1.6
+const SC_CEIL := 3.6
+const SC_Z0 := -113.7          # south edge of the tunnels (z decreases going north)
+const SC_EXITS := [[15, 2, 1.0], [0, 4, -1.0]]   # [cell x, cell z, side] tunnels out of the cliff sides
+const SC_SHAFT := Vector2i(12, 4)                  # ladder shaft up to the plateau top
 
 var seed_value := 1
 var rng := RandomNumberGenerator.new()
@@ -20,6 +29,8 @@ var noise := FastNoiseLite.new()
 var noise2 := FastNoiseLite.new()
 var heights := PackedFloat32Array()
 var plateau_x := 0.0
+var secret_cave_spots: Array[Vector3] = []   # dead ends deep in the waterfall cave (bananas start there)
+var secret_cave_open := []                   # [x][z] -> [north, east, south, west] open passages
 
 ## Gameplay data used by players and AI
 var trees: Array = []          # [{pos: Vector3 (base), radius, height, branches: [{start, end, radius}]}]
@@ -62,6 +73,7 @@ func build(p_seed: int) -> void:
 	_build_waterfall()
 	_build_cliff_rocks()
 	_build_cave()
+	_build_secret_cave()
 	_build_hollow_log()
 	_build_trees()
 	_build_bridges()
@@ -92,7 +104,8 @@ func _raw_height(x: float, z: float) -> float:
 	# rocky plateau at the north end with a cliff face and a stream on top
 	var pm := plateau_mask(x, z)
 	if pm > 0.0:
-		h = lerpf(h, PLATEAU_H + n * 0.4, pm)
+		# kept perfectly flat over the waterfall cave so its rock roof matches the surface
+		h = lerpf(h, PLATEAU_H + n * 0.4 * (0.0 if _in_cave_zone(x, z) else 1.0), pm)
 		var ds := absf(x - plateau_x)
 		h -= smoothstep(4.5, 2.0, ds) * 1.4 * pm
 	# flattened clearing for the cave
@@ -151,13 +164,20 @@ func _build_terrain() -> void:
 	for iz in GRID_N:
 		for ix in GRID_N:
 			heights[iz * GRID_N + ix] = _raw_height(-HALF + ix * GRID_STEP, -HALF + iz * GRID_STEP)
+	# the drawn and collidable terrain is hollowed out under the plateau for the waterfall cave;
+	# ground_height() keeps reporting the surface on top
+	var carved := heights.duplicate()
+	for iz in GRID_N:
+		for ix in GRID_N:
+			var i := iz * GRID_N + ix
+			carved[i] = _cave_carve(-HALF + ix * GRID_STEP, -HALF + iz * GRID_STEP, heights[i])
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for iz in GRID_N:
 		for ix in GRID_N:
 			var x := -HALF + ix * GRID_STEP
 			var z := -HALF + iz * GRID_STEP
-			var h := heights[iz * GRID_N + ix]
+			var h := carved[iz * GRID_N + ix]
 			var dr := absf(x - river_x(z)) if z > RIVER_START_Z - 6.0 else 99.0
 			var sand := smoothstep(16.0, 9.0, dr) if h < 2.2 else 0.0
 			var mud := clampf(noise2.get_noise_2d(x * 0.7, z * 0.7) * 1.6, 0.0, 1.0) * (1.0 - sand)
@@ -192,7 +212,7 @@ func _build_terrain() -> void:
 	var data := PackedFloat32Array()
 	data.resize(GRID_N * GRID_N)
 	for i in heights.size():
-		data[i] = heights[i] / GRID_STEP
+		data[i] = carved[i] / GRID_STEP
 	shape.map_data = data
 	var cs := CollisionShape3D.new()
 	cs.shape = shape
@@ -257,7 +277,6 @@ func _build_waterfall() -> void:
 	_rock_box(Vector3(plateau_x, -0.9, lip_z + 1.6), Vector3(12, 5.0, 4.4), 0.0)
 	_rock_box(Vector3(plateau_x - 7.2, 10.0, lip_z + 1.8), Vector3(2.6, 22.0, 5.4), 0.0)
 	_rock_box(Vector3(plateau_x + 7.2, 10.0, lip_z + 1.8), Vector3(2.6, 22.0, 5.4), 0.0)
-	_rock_box(Vector3(plateau_x, 9.0, lip_z - 1.2), Vector3(12, 20.0, 2.0), 0.0)
 	# stepping boulders out of the pool onto the ledge
 	_boulder(Vector3(plateau_x + 3.0, -1.6, lip_z + 5.8), Vector3(1.6, 2.2, 1.4))
 	_boulder(Vector3(plateau_x - 2.5, -1.8, lip_z + 6.4), Vector3(1.4, 1.9, 1.3))
@@ -323,14 +342,15 @@ func _build_cliff_rocks() -> void:
 	for side in [-1.0, 1.0]:
 		var z := -148.0
 		while z < -112.0:
-			var cx: float = plateau_x + side * 37.5
+			var cx: float = plateau_x + side * 41.5
 			var s := rng.randf_range(2.0, 3.4)
 			_boulder(Vector3(cx + side * 0.6, ground_height(cx + side * 3.0, z) + s * 0.5, z), Vector3(s, s * 1.5, s))
 			z += rng.randf_range(5.0, 8.0)
-	# a wooden ladder up the cliff for the less acrobatic
+	# a wooden ladder up the cliff for the less acrobatic, with a little landing at the top
 	var lx := plateau_x - 20.0
 	var lbase := ground_height(lx, -108.5)
 	_ladder(Vector3(lx, lbase, -108.6), PLATEAU_H - lbase + 1.0, Vector3(0, 0, 1))
+	_wood_box(Vector3(lx, PLATEAU_H - 0.1, -109.5), Vector3(2.2, 0.2, 2.2), true)
 
 
 func _build_cave() -> void:
@@ -396,6 +416,266 @@ func _build_cave() -> void:
 	for i in 4:
 		var p := c + Vector3(-21 + rng.randf_range(-3, 3), 0.6, -15 + rng.randf_range(-2, 1))
 		_bush(p, rng.randf_range(1.4, 2.0))
+
+
+# ======================================================================== waterfall cave
+## Inside the rock band around the waterfall cave (no plateau noise, no props from the surface).
+func _in_cave_zone(x: float, z: float) -> bool:
+	return absf(x - plateau_x) <= 39.7 and z <= -110.2 and z >= -144.6
+
+
+## Over the cave: the stream channel and the ladder shaft opening have no ground to put things on.
+func _cave_roof_blocked(x: float, z: float, margin: float) -> bool:
+	if not _in_cave_zone(x, z):
+		return false
+	var sc := sc_center(SC_SHAFT)
+	return absf(x - plateau_x) < 5.0 or (absf(x - sc.x) < 2.2 + margin and absf(z - sc.z) < 2.2 + margin)
+
+
+## Terrain height with the cave hollowed out (used for the drawn and collidable terrain only).
+func _cave_carve(x: float, z: float, h: float) -> float:
+	var u := x - plateau_x
+	if absf(u) <= 37.4 and z <= -111.5 and z >= -142.3:
+		return SC_FLOOR
+	if absf(u) <= 3.0 and z > -111.5 and z <= -108.0:
+		return SC_FLOOR
+	for e in SC_EXITS:
+		var zc := sc_center(Vector2i(e[0], e[1])).z
+		var su: float = u * e[2]
+		if su >= 35.0 and su <= 46.0 and absf(z - zc) <= 3.8:
+			return lerpf(SC_FLOOR, h, clampf((su - 39.7) / 6.3, 0.0, 1.0))
+	return h
+
+
+func sc_center(c: Vector2i) -> Vector3:
+	return Vector3(plateau_x - 35.2 + (c.x + 0.5) * SC_CELL, SC_FLOOR, SC_Z0 - (c.y + 0.5) * SC_CELL)
+
+
+## A rock box spanning world x0..x1, y0..y1, z0..z1.
+func _rock_span(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float) -> void:
+	if x1 - x0 < 0.05 or y1 - y0 < 0.05 or z1 - z0 < 0.05:
+		return
+	_rock_box(Vector3((x0 + x1) * 0.5, (y0 + y1) * 0.5, (z0 + z1) * 0.5), Vector3(x1 - x0, y1 - y0, z1 - z0), 0.0)
+
+
+## A maze of tunnels inside the plateau: a grotto right behind the falling water, a crystal
+## chamber in the middle, twisting passages with dead ends, two hidden tunnels out of the
+## cliff sides and a ladder shaft up to the plateau top.
+func _build_secret_cave() -> void:
+	var px := plateau_x
+	var x0 := px - 35.2
+	var x1 := px + 35.2
+	var zs := SC_Z0                          # south edge
+	var zn := SC_Z0 - SC_NZ * SC_CELL        # north edge
+	var f := SC_FLOOR
+	var top := f + SC_CEIL
+	var stream_top := PLATEAU_H - 1.4
+	# --- carve the tunnels (recursive backtracker, plus extra loops)
+	var open := []
+	for i in SC_NX:
+		var col := []
+		for j in SC_NZ:
+			col.append([false, false, false, false])   # north(j+1), east(i+1), south(j-1), west(i-1)
+		open.append(col)
+	var dirs := [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
+	var seen := {Vector2i(7, 0): true}
+	var stack: Array[Vector2i] = [Vector2i(7, 0)]
+	while not stack.is_empty():
+		var cur: Vector2i = stack[-1]
+		var opts := []
+		for d in 4:
+			var nb: Vector2i = cur + dirs[d]
+			if nb.x >= 0 and nb.y >= 0 and nb.x < SC_NX and nb.y < SC_NZ and not seen.has(nb):
+				opts.append(d)
+		if opts.is_empty():
+			stack.pop_back()
+			continue
+		var d: int = opts[rng.randi_range(0, opts.size() - 1)]
+		var nb: Vector2i = cur + dirs[d]
+		open[cur.x][cur.y][d] = true
+		open[nb.x][nb.y][(d + 2) % 4] = true
+		seen[nb] = true
+		stack.append(nb)
+	for k in 9:
+		var i := rng.randi_range(0, SC_NX - 2)
+		var j := rng.randi_range(0, SC_NZ - 1)
+		open[i][j][1] = true
+		open[i + 1][j][3] = true
+	# rooms: the grotto behind the waterfall and the crystal chamber
+	var rooms := [[Rect2i(7, 0, 2, 2), "grotto"], [Rect2i(5, 3, 6, 2), "crystal"]]
+	for room in rooms:
+		var r: Rect2i = room[0]
+		for i in range(r.position.x, r.end.x):
+			for j in range(r.position.y, r.end.y):
+				if i + 1 < r.end.x:
+					open[i][j][1] = true
+					open[i + 1][j][3] = true
+				if j + 1 < r.end.y:
+					open[i][j][0] = true
+					open[i][j + 1][2] = true
+	secret_cave_open = open
+	# --- rock: floor, inner walls, roof
+	_rock_span(x0, x1, f - 0.35, f + 0.05, zn, zs)
+	for i in SC_NX:
+		for j in SC_NZ:
+			var c := sc_center(Vector2i(i, j))
+			if i < SC_NX - 1 and not open[i][j][1]:
+				_rock_box(Vector3(c.x + SC_CELL * 0.5, f + SC_CEIL * 0.5, c.z), Vector3(0.7, SC_CEIL, SC_CELL + 0.7), 0.0)
+			if j < SC_NZ - 1 and not open[i][j][0]:
+				_rock_box(Vector3(c.x, f + SC_CEIL * 0.5, c.z - SC_CELL * 0.5), Vector3(SC_CELL + 0.7, SC_CEIL, 0.7), 0.0)
+			if Vector2i(i, j) == SC_SHAFT:
+				continue
+			var roof_top := stream_top if absf(c.x - px) < SC_CELL else PLATEAU_H
+			_rock_span(c.x - SC_CELL * 0.5, c.x + SC_CELL * 0.5, top, roof_top, c.z - SC_CELL * 0.5, c.z + SC_CELL * 0.5)
+	# --- thick outer rock (fills the gap between the tunnels and the old plateau surface)
+	var exit_z := {}
+	for e in SC_EXITS:
+		exit_z[e[2]] = sc_center(Vector2i(e[0], e[1])).z
+	for side in [-1.0, 1.0]:
+		var a: float = px + side * 35.2
+		var b: float = px + side * 39.7
+		var lo := minf(a, b)
+		var hi := maxf(a, b)
+		var ez: float = exit_z[side]
+		_rock_span(lo, hi, f - 1.0, PLATEAU_H, ez + 1.6, -110.2)
+		_rock_span(lo, hi, f - 1.0, PLATEAU_H, -144.6, ez - 1.6)
+		_rock_span(lo, hi, f + 3.0, PLATEAU_H, ez - 1.6, ez + 1.6)   # tunnel roof
+		_rock_span(lo, hi, f - 0.35, f + 0.05, ez - 1.6, ez + 1.6)   # tunnel floor
+	# north
+	_rock_span(px - 39.7, px - SC_CELL, f - 1.0, PLATEAU_H, -144.6, zn)
+	_rock_span(px + SC_CELL, px + 39.7, f - 1.0, PLATEAU_H, -144.6, zn)
+	_rock_span(px - SC_CELL, px + SC_CELL, f - 1.0, stream_top, -144.6, zn)
+	# south: solid cliff rock, except a doorway straight behind the waterfall
+	_rock_span(px - 35.2, px - 6.0, f - 1.0, PLATEAU_H, zs, -110.2)
+	_rock_span(px + 6.0, px + 35.2, f - 1.0, PLATEAU_H, zs, -110.2)
+	_rock_span(px - 6.0, px - 1.3, -1.5, stream_top, zs, -110.7)
+	_rock_span(px + 1.3, px + 6.0, -1.5, stream_top, zs, -110.7)
+	_rock_span(px - 1.3, px + 1.3, f + 3.0, stream_top, zs, -110.7)
+	_rock_span(px - 1.3, px + 1.3, f - 0.35, f + 0.05, zs, -110.7)
+	# --- the ladder shaft up to the plateau, hidden in bushes at the top
+	var sc := sc_center(SC_SHAFT)
+	_ladder(Vector3(sc.x, f + 0.05, sc.z - SC_CELL * 0.5 + 0.5), PLATEAU_H - f + 0.6, Vector3(0, 0, 1))
+	for k in 5:
+		var a := float(k) / 5.0 * TAU + 0.4
+		_bush(Vector3(sc.x + cos(a) * 3.4, PLATEAU_H + 0.6, sc.z + sin(a) * 3.4), rng.randf_range(1.2, 1.7))
+	var shaft_light := OmniLight3D.new()
+	shaft_light.light_color = Color(1.0, 0.95, 0.8)
+	shaft_light.light_energy = 1.2
+	shaft_light.omni_range = 8.0
+	shaft_light.position = sc + Vector3(0, 3.0, 0)
+	add_child(shaft_light)
+	# --- bushes over the cliff-side tunnel mouths
+	for e in SC_EXITS:
+		var ez: float = sc_center(Vector2i(e[0], e[1])).z
+		var mx: float = px + e[2] * 41.0
+		for k in 3:
+			var bz := ez + (k - 1) * 2.0 + rng.randf_range(-0.4, 0.4)
+			_bush(Vector3(mx + e[2] * rng.randf_range(0.5, 2.5), ground_height(mx, bz) + 0.5, bz), rng.randf_range(1.2, 1.6))
+	# --- inside: crystals, torches, mushrooms
+	var crystal_mat := StandardMaterial3D.new()
+	crystal_mat.albedo_color = Color(0.4, 0.85, 1.0)
+	crystal_mat.emission_enabled = true
+	crystal_mat.emission = Color(0.3, 0.8, 1.0)
+	crystal_mat.emission_energy_multiplier = 2.5
+	crystal_mat.metallic = 0.3
+	crystal_mat.roughness = 0.1
+	var crystal_mat2: StandardMaterial3D = crystal_mat.duplicate()
+	crystal_mat2.albedo_color = Color(0.85, 0.45, 1.0)
+	crystal_mat2.emission = Color(0.75, 0.3, 1.0)
+	for room in rooms:
+		var r: Rect2i = room[0]
+		var a := sc_center(r.position)
+		var b := sc_center(r.end - Vector2i.ONE)
+		var mid := (a + b) * 0.5
+		var hx := absf(b.x - a.x) * 0.5 + SC_CELL * 0.5 - 0.8
+		var hz := absf(b.z - a.z) * 0.5 + SC_CELL * 0.5 - 0.8
+		var count := 10 if room[1] == "grotto" else 22
+		for k in count:
+			var p := mid + Vector3(rng.randf_range(-hx, hx), 0.0, rng.randf_range(-hz, hz))
+			if room[1] == "grotto" and absf(p.x - px) < 1.6 and p.z > zs - 3.0:
+				continue   # keep the doorway clear
+			_crystal(p, rng.randf_range(0.5, 1.6), crystal_mat if rng.randf() < 0.6 else crystal_mat2)
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.4, 0.85, 1.0) if room[1] == "grotto" else Color(0.7, 0.45, 1.0)
+		l.light_energy = 2.4
+		l.omni_range = 12.0 if room[1] == "grotto" else 16.0
+		l.position = mid + Vector3(0, SC_CEIL - 0.8, 0)
+		add_child(l)
+		hide_spots.append({"pos": mid + Vector3(0, 0.5, 0), "radius": 3.0, "kind": "waterfall_cave"})
+	# dead ends: bananas start there, and they are the best hiding places
+	var flame_mat := StandardMaterial3D.new()
+	flame_mat.albedo_color = Color(1.0, 0.6, 0.2)
+	flame_mat.emission_enabled = true
+	flame_mat.emission = Color(1.0, 0.5, 0.1)
+	flame_mat.emission_energy_multiplier = 4.0
+	flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var torches := 0
+	for i in SC_NX:
+		for j in SC_NZ:
+			var cell := Vector2i(i, j)
+			var c := sc_center(cell)
+			var exits := 0
+			for d in 4:
+				if open[i][j][d]:
+					exits += 1
+			var is_exit := false
+			for e in SC_EXITS:
+				if e[0] == i and e[1] == j:
+					is_exit = true
+			if exits == 1 and not is_exit and cell != SC_SHAFT:
+				secret_cave_spots.append(c)
+				hide_spots.append({"pos": c + Vector3(0, 0.5, 0), "radius": 1.6, "kind": "tunnel"})
+			# glowing mushrooms along the floor
+			if rng.randf() < 0.55:
+				for k in rng.randi_range(1, 3):
+					var p := c + Vector3(rng.randf_range(-1.6, 1.6), 0.15, rng.randf_range(-1.6, 1.6))
+					var s := rng.randf_range(0.2, 0.42)
+					_add_batch("mushroom", Transform3D(Basis().scaled(Vector3(s, s * 0.7, s)), p), Color.from_hsv(rng.randf_range(0.45, 0.85), 0.7, 1.0))
+			# torches on a closed wall every so often
+			if torches < 9 and (i * 7 + j * 3) % 5 == 0:
+				for d in 4:
+					if open[i][j][d]:
+						continue
+					var dir := Vector3(dirs[d].x, 0, -dirs[d].y)
+					var tp := c + dir * (SC_CELL * 0.5 - 0.45) + Vector3(0, 2.2, 0)
+					_wood_box(tp + Vector3(0, -0.3, 0), Vector3(0.12, 0.6, 0.12), false)
+					var flame := MeshInstance3D.new()
+					var fm := SphereMesh.new()
+					fm.radius = 0.12
+					fm.height = 0.34
+					fm.radial_segments = 8
+					fm.rings = 4
+					fm.material = flame_mat
+					flame.mesh = fm
+					flame.position = tp + Vector3(0, 0.1, 0)
+					flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					add_child(flame)
+					var tl := OmniLight3D.new()
+					tl.light_color = Color(1.0, 0.6, 0.3)
+					tl.light_energy = 1.6
+					tl.omni_range = 7.0
+					tl.position = tp - dir * 0.4 + Vector3(0, 0.2, 0)
+					add_child(tl)
+					torches += 1
+					break
+
+
+func _crystal(p: Vector3, s: float, mat: StandardMaterial3D) -> void:
+	var cluster := rng.randi_range(2, 4)
+	for k in cluster:
+		var m := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = 0.18 * s
+		cm.height = rng.randf_range(0.7, 1.4) * s
+		cm.radial_segments = 6
+		cm.rings = 1
+		cm.material = mat
+		m.mesh = cm
+		m.position = p + Vector3(rng.randf_range(-0.3, 0.3), cm.height * 0.4, rng.randf_range(-0.3, 0.3))
+		m.rotation = Vector3(rng.randf_range(-0.4, 0.4), rng.randf() * TAU, rng.randf_range(-0.4, 0.4))
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(m)
 
 
 func _build_hollow_log() -> void:
@@ -464,7 +744,7 @@ func _build_trees() -> void:
 		var pm := plateau_mask(x, z)
 		if pm > 0.02 and pm < 0.98:
 			continue
-		if pm >= 0.98 and (absf(x - plateau_x) < 8.0 or z > -116.0):
+		if pm >= 0.98 and (absf(x - plateau_x) < 8.0 or z > -116.0 or _cave_roof_blocked(x, z, 4.0)):
 			continue
 		if pm < 0.02 and z < -104.0 and absf(x - plateau_x) < 42.0:
 			continue
@@ -791,7 +1071,7 @@ func _build_bushes() -> void:
 		if pm > 0.05 and pm < 0.95:
 			continue
 		var dc := Vector2(x, z).distance_to(CAVE_CENTER)
-		if dc < 13.0:
+		if dc < 13.0 or _cave_roof_blocked(x, z, 3.0):
 			continue
 		# clusters of bushes look more natural
 		var cluster := rng.randi_range(1, 4)
@@ -849,7 +1129,7 @@ func _build_ground_cover(veg: RandomNumberGenerator, density: float) -> void:
 			var pm := plateau_mask(x, z)
 			if pm > 0.05 and pm < 0.95:
 				continue
-			if Vector2(x, z).distance_to(CAVE_CENTER) < 12.5:
+			if Vector2(x, z).distance_to(CAVE_CENTER) < 12.5 or _cave_roof_blocked(x, z, 0.5):
 				continue
 			var s := veg.randf_range(0.7, 1.4)
 			var b := Basis().rotated(Vector3.UP, veg.randf() * TAU).scaled(Vector3.ONE * s)

@@ -81,6 +81,7 @@ var frozen := false            # seekers during hide time
 var stun_time := 0.0
 var tags := 0
 var speed_boost := 0.0         # seconds left of the speed power-up
+var banana_boost := 0.0        # seconds left of double sprint speed (10 bananas)
 var jump_boost := 0.0          # seconds left of the super jump power-up
 var score := 0.0
 
@@ -424,6 +425,7 @@ func _is_climbable(hit: Dictionary) -> bool:
 func _physics_process(delta: float) -> void:
 	if control == Ctrl.REMOTE:
 		stun_time = maxf(0.0, stun_time - delta)
+		banana_boost = maxf(0.0, banana_boost - delta)
 		_remote_update(delta)
 		_update_visuals(delta)
 		return
@@ -484,6 +486,7 @@ func _tick_timers(delta: float) -> void:
 	_swipe_cooldown -= delta
 	stun_time = maxf(0.0, stun_time - delta)
 	speed_boost = maxf(0.0, speed_boost - delta)
+	banana_boost = maxf(0.0, banana_boost - delta)
 	jump_boost = maxf(0.0, jump_boost - delta)
 	if input.jump:
 		_jump_buffer = JUMP_BUFFER
@@ -565,6 +568,8 @@ func _free_move(delta: float) -> void:
 		target_speed *= TAGGER_SPEED_BONUS
 	if speed_boost > 0.0:
 		target_speed *= 1.5
+	if banana_boost > 0.0 and input.sprint and not _crouched:
+		target_speed *= 2.0
 	if world and world.get("frenzy"):
 		target_speed *= 1.15
 	var h := Vector3(velocity.x, 0, velocity.z)

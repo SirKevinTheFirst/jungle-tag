@@ -70,6 +70,22 @@ func _process(_d: float) -> void:
 		world.weather._timer = 0.05
 	if frame == 30:
 		_check(not world.weather.raining, "weather turns sunny after its timer")
+		for id in world.gorillas:
+			world.gorillas[id].global_position = Vector3(300, 0, 300)
+	if frame >= 40 and frame < 70 and frame % 3 == 1:
+		# stand on a banana every few frames
+		var bid: int = (frame - 40) / 3
+		world.local.global_position = world.bananas._nodes[bid].global_position
+	if frame == 75:
+		var n := int(world.bananas.counts.get(world.local.net_id, 0))
+		_check(n == 10, "ate 10 bananas (got %d)" % n)
+		var moved: Vector3 = world.bananas._nodes[0].global_position
+		_check(moved.distance_to(world.local.global_position) > 3.0, "eaten bananas grow back somewhere else")
+		world.local.global_position = Vector3(300, 0, 300)
+		Net.send_banana_request()
+	if frame == 80:
+		_check(world.local.banana_boost > 29.0, "F uses the bananas for a 30 s boost")
+		_check(int(world.bananas.counts.get(world.local.net_id, 0)) == 0, "boost costs 10 bananas")
 	if frame == 30 + 60 * 11:
 		_check(world.weather.mix < 0.01, "sky fades fully to sunshine")
 		print("== %s (%d failures) ==" % ["PASSED" if failures == 0 else "FAILED", failures])

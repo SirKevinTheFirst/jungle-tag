@@ -12,6 +12,9 @@ var _phase_label: Label
 var _role_panel: PanelContainer
 var _role_label: Label
 var _camo_meter: CamoMeter
+var _banana_box: PanelContainer
+var _banana_text: Label
+var _boost_label: Label
 var _camo_text: Label
 var _hint: Label
 var _msg: Label
@@ -137,6 +140,25 @@ void fragment(){
 	var camo_row := UITheme.row([_camo_meter, _camo_text], 12)
 	camo_box.add_child(camo_row)
 
+	# bananas: count above the camo meter, big countdown while the boost runs
+	_banana_box = PanelContainer.new()
+	_banana_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_banana_box.position = Vector2(-250, -238)
+	_banana_box.custom_minimum_size = Vector2(230, 76)
+	root.add_child(_banana_box)
+	_banana_text = UITheme.label("", 18, Color(1.0, 0.88, 0.3))
+	_banana_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_banana_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_banana_box.add_child(_banana_text)
+	_boost_label = UITheme.label("", 34, Color(1.0, 0.88, 0.25))
+	_boost_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_boost_label.position.y -= 150
+	_boost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boost_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_boost_label.add_theme_color_override("font_outline_color", Color(0.25, 0.15, 0.0))
+	_boost_label.add_theme_constant_override("outline_size", 10)
+	root.add_child(_boost_label)
+
 	# speed readout bottom-left
 	_speed_label = UITheme.label("", 16, UITheme.MUTED)
 	_speed_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -248,6 +270,7 @@ func _process(delta: float) -> void:
 		"end": _phase_label.text = "NEXT ROUND SOON"
 	_update_role(me, gm)
 	_update_camo(me)
+	_update_bananas(me)
 	_update_hint(me, delta)
 	var spd := me.velocity.length()
 	_speed_label.text = "%.0f m/s" % spd if spd > 0.5 else ""
@@ -271,6 +294,26 @@ func _process(delta: float) -> void:
 		var vs := get_viewport().get_visible_rect().size
 		(_bino.material as ShaderMaterial).set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
 		_bino_label.text = "BINOCULARS  %.1fx   (scroll to zoom)" % (Settings.fov / maxf(me.camera.fov, 1.0))
+
+
+func _update_bananas(me: Gorilla) -> void:
+	if world.bananas == null:
+		return
+	var n := int(world.bananas.counts.get(me.net_id, 0))
+	var need := Bananas.NEED
+	if me.banana_boost > 0.0:
+		_banana_text.text = "BANANA BOOST ON\n2x sprint speed"
+		_boost_label.text = "BANANA BOOST  %d" % ceili(me.banana_boost)
+		_boost_label.modulate.a = 1.0 if me.banana_boost > 5.0 else 0.5 + 0.5 * absf(sin(me.banana_boost * 8.0))
+		_banana_box.modulate = Color.WHITE
+	elif n >= need:
+		_banana_text.text = "BANANA POWER READY\nPress F!"
+		_boost_label.text = ""
+		_banana_box.modulate = Color(1, 1, 1, 0.65 + 0.35 * absf(sin(Time.get_ticks_msec() / 250.0)))
+	else:
+		_banana_text.text = "BANANAS  %d / %d\neat %d for a sprint boost" % [n, need, need]
+		_boost_label.text = ""
+		_banana_box.modulate = Color.WHITE
 
 
 func _update_role(me: Gorilla, gm: GameMode) -> void:

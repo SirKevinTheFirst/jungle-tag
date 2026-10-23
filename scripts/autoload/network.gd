@@ -270,6 +270,21 @@ func request_camo(on: bool) -> void:
 		world.server_camo_request(multiplayer.get_remote_sender_id(), on)
 
 
+## Client -> host: wants to use 10 bananas for a sprint boost.
+@rpc("any_peer", "reliable")
+func request_banana() -> void:
+	if world and is_host():
+		world.bananas.server_request(multiplayer.get_remote_sender_id())
+
+
+func send_banana_request() -> void:
+	if is_host():
+		if world:
+			world.bananas.server_request(my_id())
+	else:
+		request_banana.rpc_id(1)
+
+
 ## Client -> host: swiped a hand (slightly longer tag reach for a moment).
 @rpc("any_peer", "unreliable")
 func request_swipe() -> void:

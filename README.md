@@ -28,6 +28,7 @@ Everything in the game (the map, the gorilla characters, animations, sounds and 
 | Camouflage | Press **G**. Your gorilla fades into a green/brown leaf pattern (with a leaf burst and sound). The bottom-right meter shows time left (15 s max) and then the 20 s cooldown. Moving fast lowers the “% hidden” number. Press G again to end it early. |
 | Hiding | Bushes, tree canopies, the cave (west side), the secret tunnel out of the back of the cave, the hollow log, treehouses, and the ledge **behind the waterfall** at the north cliff. |
 | HUD | Name, mode, gorilla count (top-left), round timer (top), role badge (top-right), camo meter (bottom-right). Hold **Tab** for the scoreboard. |
+| Bananas | Eat 10, then press **F** for 30 seconds of double sprint speed. |
 | Camera | **V** switches between third person and first person. Hold **B** for **binoculars** and scroll the mouse wheel to zoom in or out. |
 | Pause | **Esc** (solo games actually pause). Settings are in the pause menu too. |
 
@@ -56,6 +57,8 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 * Find the glowing **green EXIT** to climb back up into the jungle. **The Shadow**, a tagger who lives in the maze, hunts you down there. If it catches you, you go back to the start of the maze. It walks, so sprinting gets you away.
 * **Power-ups** float around the jungle: gold **SPEED**, blue **SUPER JUMP**, green **CAMO REFILL**. Run through one to grab it.
 * **FRENZY**: in the last 30 seconds of every round everyone moves faster.
+* **Bananas**: 45 bananas are scattered around the jungle (a few are hidden deep in the waterfall cave). Walk into one to eat it, and it grows back somewhere else. The counter sits above the camo meter. When you've eaten **10**, press **F** for **2x sprint speed for 30 seconds**. A big countdown appears at the bottom of the screen.
+* **Waterfall cave**: walk along the ledge behind the waterfall and through the doorway in the rock. Inside there's a glowing crystal grotto, a big crystal chamber and a maze of torch-lit tunnels with dead ends. Two hidden tunnels come out of the plateau's cliff sides (behind bushes), and a ladder shaft climbs up to the plateau top.
 * **Weather**: every match starts in light rain under grey clouds (with the odd thunderclap). Every 3 minutes the weather flips between rain and sunshine.
 
 **Taggers** (match setup): "Automatic" keeps each mode's usual number of taggers, or pick 1 to 4 taggers at the start of every round.
@@ -127,6 +130,8 @@ audio/                     generated .wav sound effects, ambience and music
 tools/gen_audio.py         regenerates all audio (Python 3 + numpy)
 tools/test_runner.tscn     headless smoke test (terrain, climb, vine, camo timers, AI tags)
 tools/net_test.tscn        two-process host/client test (password join, sync, server camo)
+tools/rules_test.tscn      taggers option, no tag-backs, weather, bananas
+tools/cave_test.tscn       walks through the waterfall cave to every exit
 tools/screenshot.tscn      renders screenshots of a match; menu_shot.tscn does the menus
 ```
 
