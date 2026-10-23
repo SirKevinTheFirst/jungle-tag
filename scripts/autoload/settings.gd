@@ -48,6 +48,7 @@ func _setup_input_map() -> void:
 		"pause": [KEY_ESCAPE],
 		"scoreboard": [KEY_TAB],
 		"camera_toggle": [KEY_V],
+		"binoculars": [KEY_B],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):

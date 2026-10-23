@@ -141,6 +141,8 @@ var camera_pivot: Node3D
 var spring_arm: SpringArm3D
 var camera: Camera3D
 var first_person := false
+var binoculars := false           # local only: hold B to zoom in
+var _bino_fov := 16.0
 var leaf_burst: GPUParticles3D
 var _cam_shake := 0.0
 
@@ -289,9 +291,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sens := Settings.mouse_sensitivity
+		if binoculars:
+			sens *= camera.fov / Settings.fov  # finer aim while zoomed in
 		input.yaw -= event.relative.x * sens
 		input.pitch -= event.relative.y * sens * (-1.0 if Settings.invert_y else 1.0)
 		input.pitch = clampf(input.pitch, deg_to_rad(-80.0), deg_to_rad(70.0))
+	elif binoculars and event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_bino_fov = clampf(_bino_fov * (0.85 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.18), 6.0, 35.0)
 	elif event.is_action_pressed("camera_toggle"):
 		first_person = not first_person
 		_apply_camera_mode()
@@ -300,10 +306,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _apply_camera_mode() -> void:
 	if spring_arm == null:
 		return
-	spring_arm.spring_length = 0.0 if first_person else 4.2
-	spring_arm.position = Vector3(0, 0.1, -0.1) if first_person else Vector3(0.55, 0.25, 0)
+	var fp := first_person or binoculars
+	spring_arm.spring_length = 0.0 if fp else 4.2
+	spring_arm.position = Vector3(0, 0.1, -0.1) if fp else Vector3(0.55, 0.25, 0)
 	# layer 2 holds the local gorilla's own body; hide it in first person
-	camera.cull_mask = 0xFFFFD if first_person else 0xFFFFF
+	camera.cull_mask = 0xFFFFD if fp else 0xFFFFF
 
 
 func _gather_local_input() -> void:
@@ -1060,9 +1067,18 @@ func _update_visuals(delta: float) -> void:
 		else:
 			camera.h_offset = 0.0
 			camera.v_offset = 0.0
-		# a touch of speed FOV
-		var spd := vel.length()
-		camera.fov = lerpf(camera.fov, Settings.fov + clampf((spd - 8.0) * 0.8, 0.0, 14.0), 1.0 - exp(-4.0 * delta))
+		var want_bino := control == Ctrl.LOCAL and Input.is_action_pressed("binoculars") \
+			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		if want_bino != binoculars:
+			binoculars = want_bino
+			_apply_camera_mode()
+			Sfx.play("ui_click", -4.0, 0.7 if binoculars else 0.55)
+		if binoculars:
+			camera.fov = lerpf(camera.fov, _bino_fov, 1.0 - exp(-14.0 * delta))
+		else:
+			# a touch of speed FOV
+			var spd := vel.length()
+			camera.fov = lerpf(camera.fov, Settings.fov + clampf((spd - 8.0) * 0.8, 0.0, 14.0), 1.0 - exp(-8.0 * delta))
 
 
 ## Updates the visual for a role change (called on all peers).

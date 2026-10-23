@@ -27,6 +27,7 @@ var last_result := ""
 
 # host only
 var _immune := {}         # id -> seconds of tag immunity left
+var _no_tagback := {}     # tagger id -> the gorilla who tagged them (can't be tagged straight back)
 var _swipe := {}          # id -> seconds of extended reach left
 var _sync_timer := 0.0
 var _infect_order: Array = []
@@ -50,6 +51,7 @@ func start_round() -> void:
 	roles.clear()
 	stats.clear()
 	_immune.clear()
+	_no_tagback.clear()
 	_infect_order.clear()
 	for id in ids:
 		stats[id] = {"tags": 0, "it_time": 0.0, "survived": 0.0}
@@ -64,6 +66,10 @@ func start_round() -> void:
 			base_role = "hider"
 			special = "seeker"
 			special_count = maxi(1, ids.size() / 6)
+	var chosen := int(Game.config.get("taggers", 0))
+	if chosen > 0:
+		special_count = chosen
+	special_count = clampi(special_count, 1, maxi(1, ids.size() - 1))
 	for i in ids.size():
 		roles[ids[i]] = special if i < special_count else base_role
 	for i in special_count:
@@ -212,6 +218,9 @@ func _check_tags() -> void:
 		for v_id in targets:
 			if _immune.has(v_id):
 				continue
+			# no tag-backs: you have to get someone other than the gorilla who got you
+			if _no_tagback.get(t_id, -1) == v_id and targets.size() > 1:
+				continue
 			var vg: Gorilla = world.gorillas[v_id]
 			if (vg.global_position + Vector3(0, 0.8, 0)).distance_to(tp) < reach:
 				_do_tag(t_id, v_id)
@@ -225,6 +234,8 @@ func _do_tag(tagger: int, target: int) -> void:
 		Game.MODE_CLASSIC:
 			roles[tagger] = "runner"
 			roles[target] = "it"
+			_no_tagback.erase(tagger)
+			_no_tagback[target] = tagger
 			_immune[tagger] = TAG_IMMUNITY
 			stun = CLASSIC_STUN
 		Game.MODE_INFECTION:
@@ -267,7 +278,7 @@ func apply_tag(d: Dictionary) -> void:
 	if d.target == me:
 		match int(d.mode):
 			Game.MODE_CLASSIC:
-				round_message.emit("You're IT!", "Tag someone else")
+				round_message.emit("You're IT!", "Tag someone else - no tag-backs!")
 			Game.MODE_INFECTION:
 				round_message.emit("INFECTED!", "Spread the infection")
 			Game.MODE_HIDE_SEEK:

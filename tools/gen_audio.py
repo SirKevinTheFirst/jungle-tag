@@ -160,6 +160,28 @@ def waterfall_loop():
     return (roar + rumble) * (0.9 + 0.1 * np.sin(2 * np.pi * t / dur * 4))
 
 
+def rain_loop():
+    dur = 12.0
+    n = int(dur * SR)
+    hiss = shaped_noise(n, 800, 9000, tilt=-0.2) * 0.5
+    buf = hiss.copy()
+    for i in range(2600):
+        d = rng.uniform(0.004, 0.015)
+        drop = shaped_noise(int(d * SR) + 8, 1500, 7000)[: int(d * SR)] * exp_env(int(d * SR), d / 4)
+        place_wrap(buf, drop * rng.uniform(0.2, 1.0), rng.uniform(0, n))
+    return buf
+
+
+def thunder():
+    dur = 4.5
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    crack = shaped_noise(n, 200, 4000) * np.exp(-t * 6.0)
+    roll = shaped_noise(n, 25, 220) * 2.2 * (np.exp(-t * 0.9) * (1 - np.exp(-t * 12)))
+    roll *= 0.7 + 0.3 * np.sin(2 * np.pi * t * 1.7)
+    return crack * 0.6 + roll
+
+
 # ----------------------------------------------------------------- movement
 def footstep(v):
     d = 0.16
@@ -384,6 +406,8 @@ def main():
     save("ui_click", ui_click(), peak=0.5)
     save("ui_hover", ui_hover(), peak=0.3)
     save("music_loop", music_loop(), peak=0.6)
+    save("amb_rain", rain_loop(), peak=0.55)
+    save("thunder", thunder(), peak=0.9)
     print("audio written to", OUT)
 
 

@@ -102,6 +102,8 @@ func _decide_tagger(gm: GameMode, my_pos: Vector3) -> void:
 		if can_see(g, o):
 			_last_seen[id] = [o.global_position, _time]
 			var d := my_pos.distance_to(o.global_position)
+			if gm._no_tagback.get(g.net_id, -1) == id:
+				d += 1000.0  # can't tag them back, so chase anyone else first
 			# stick with the current target a little to avoid dithering
 			var s := d * (0.75 if id == _target_id else 1.0)
 			if s < best_score:

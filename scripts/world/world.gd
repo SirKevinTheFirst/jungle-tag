@@ -9,6 +9,7 @@ var gorillas := {}          # id -> Gorilla
 var local: Gorilla
 var mode: GameMode
 var hud: HUD
+var weather: Weather
 var pause_menu: PauseMenu
 var env: Environment
 var sun: DirectionalLight3D
@@ -65,6 +66,10 @@ func _ready() -> void:
 	_start_ambience()
 	Settings.changed.connect(_apply_settings)
 	_apply_settings()
+	weather = Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
+	weather.setup(self)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if Net.is_host():
 		for id in Net.ready_peers:
@@ -262,6 +267,7 @@ func on_client_ready(id: int) -> void:
 	if _round_started:
 		# late loader: bring it up to date
 		Net.game_event.rpc_id(id, "round_state", {"phase": mode.phase, "time": mode.time_left, "roles": mode.roles, "mode": mode.mode})
+		Net.game_event.rpc_id(id, "weather", {"rain": weather.raining})
 		for gid in gorillas:
 			var g: Gorilla = gorillas[gid]
 			if g.camo_active or g.camo_cooldown > 0.0:
@@ -420,6 +426,8 @@ func on_game_event(type: String, d: Dictionary) -> void:
 				g.apply_powerup(d.kind)
 				if g == local:
 					hud.show_message(PowerUp.LABELS[d.kind] + "!", "Speed x1.5 for 8 s" if d.kind == "speed" else ("Jump way higher for 8 s" if d.kind == "jump" else "Camouflage is ready again"))
+		"weather":
+			weather.set_raining(bool(d.rain))
 		"hole_open":
 			var h := BlackHole.new()
 			h.setup(d.id, d.life)

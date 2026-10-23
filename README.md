@@ -28,7 +28,7 @@ Everything in the game (the map, the gorilla characters, animations, sounds and 
 | Camouflage | Press **G**. Your gorilla fades into a green/brown leaf pattern (with a leaf burst and sound). The bottom-right meter shows time left (15 s max) and then the 20 s cooldown. Moving fast lowers the “% hidden” number. Press G again to end it early. |
 | Hiding | Bushes, tree canopies, the cave (west side), the secret tunnel out of the back of the cave, the hollow log, treehouses, and the ledge **behind the waterfall** at the north cliff. |
 | HUD | Name, mode, gorilla count (top-left), round timer (top), role badge (top-right), camo meter (bottom-right). Hold **Tab** for the scoreboard. |
-| Camera | **V** switches between third person and first person. |
+| Camera | **V** switches between third person and first person. Hold **B** for **binoculars** and scroll the mouse wheel to zoom in or out. |
 | Pause | **Esc** (solo games actually pause). Settings are in the pause menu too. |
 
 ---
@@ -46,7 +46,7 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 
 ## 3. Game modes
 
-* **Classic Tag**: one random gorilla starts as IT. Touching someone makes them IT (they're stunned for 2 s and you can't be tagged straight back). When time runs out, whoever spent the **least time as IT** wins.
+* **Classic Tag**: one random gorilla starts as IT (or more, see **Taggers** below). Touching someone makes them IT (they're stunned for 2 s). **No tag-backs**: the new IT can't tag the gorilla who just tagged them, they have to get someone else. When time runs out, whoever spent the **least time as IT** wins.
 * **Infection**: one gorilla (two with 10+ players) starts infected and turns lava-orange. Everyone they tag is infected too. The **last uninfected gorilla wins**. If time runs out, all survivors win.
 * **Jungle Hide and Seek**: about one seeker per six players. Seekers are blindfolded for 25 s while hiders hide. Found hiders become seekers. Hiders win if anyone is still hidden when time runs out.
 
@@ -56,7 +56,9 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 * Find the glowing **green EXIT** to climb back up into the jungle. **The Shadow**, a tagger who lives in the maze, hunts you down there. If it catches you, you go back to the start of the maze. It walks, so sprinting gets you away.
 * **Power-ups** float around the jungle: gold **SPEED**, blue **SUPER JUMP**, green **CAMO REFILL**. Run through one to grab it.
 * **FRENZY**: in the last 30 seconds of every round everyone moves faster.
-* The jungle is now set at **dusk**, so it is darker and easier to hide in.
+* **Weather**: every match starts in light rain under grey clouds (with the odd thunderclap). Every 3 minutes the weather flips between rain and sunshine.
+
+**Taggers** (match setup): "Automatic" keeps each mode's usual number of taggers, or pick 1 to 4 taggers at the start of every round.
 
 Tagging is a touch (about 1.75 m). Clicking a mouse button when you are not next to anything climbable does a **swipe** that extends your reach briefly. Rounds restart automatically after a 9 s results screen. The host can restart the round or go back to the lobby from the pause menu.
 

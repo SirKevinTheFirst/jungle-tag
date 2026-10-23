@@ -10,6 +10,7 @@ var _time: OptionButton
 var _count: OptionButton
 var _bots: SpinBox
 var _fill: CheckBox
+var _taggers: OptionButton
 
 
 func _ready() -> void:
@@ -28,10 +29,15 @@ func _ready() -> void:
 	_bots = SpinBox.new()
 	_bots.min_value = 0
 	_bots.max_value = 15
+	_taggers = OptionButton.new()
+	_taggers.add_item("Automatic")
+	for n in range(1, 5):
+		_taggers.add_item("%d tagger%s" % [n, "" if n == 1 else "s"])
 	_fill = CheckBox.new()
 	_fill.text = "Fill empty slots with AI"
 	_add("Game mode", _mode)
 	_add("Round time", _time)
+	_add("Taggers", _taggers)
 	_add("Player count", _count)
 	_add("AI gorillas", _bots)
 	_add("", _fill)
@@ -46,6 +52,9 @@ func _ready() -> void:
 		Game.config.max_players = Game.PLAYER_COUNTS[i]
 		Game.config.bot_count = mini(int(Game.config.bot_count), Game.config.max_players - 1)
 		refresh()
+		_emit())
+	_taggers.item_selected.connect(func(i):
+		Game.config.taggers = i
 		_emit())
 	_bots.value_changed.connect(func(v):
 		Game.config.bot_count = int(v)
@@ -84,11 +93,12 @@ func refresh() -> void:
 		return
 	_mode.selected = int(Game.config.mode)
 	_time.selected = maxi(0, Game.ROUND_TIMES.find(int(Game.config.round_time)))
+	_taggers.selected = clampi(int(Game.config.get("taggers", 0)), 0, 4)
 	_count.selected = maxi(0, Game.PLAYER_COUNTS.find(int(Game.config.max_players)))
 	_bots.max_value = int(Game.config.max_players) - 1
 	_bots.set_value_no_signal(int(Game.config.bot_count))
 	_fill.set_pressed_no_signal(bool(Game.config.fill_bots))
 	_bots.editable = editable and not Game.config.fill_bots
-	for c in [_mode, _time, _count]:
+	for c in [_mode, _time, _count, _taggers]:
 		c.disabled = not editable
 	_fill.disabled = not editable

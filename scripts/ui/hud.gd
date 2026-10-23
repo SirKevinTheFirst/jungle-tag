@@ -24,6 +24,8 @@ var _blindfold: ColorRect
 var _blind_label: Label
 var _fps: Label
 var _vignette: ColorRect
+var _bino: ColorRect
+var _bino_label: Label
 var _speed_label: Label
 var _hint_timer := 0.0
 
@@ -55,6 +57,33 @@ void fragment(){
 	vm.shader = vs
 	_vignette.material = vm
 	root.add_child(_vignette)
+
+	# binoculars: two round lenses, black around them
+	_bino = ColorRect.new()
+	_bino.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bino.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bm := ShaderMaterial.new()
+	var bs := Shader.new()
+	bs.code = """shader_type canvas_item;
+uniform float aspect = 1.777;
+void fragment(){
+	vec2 p = (UV - 0.5) * vec2(aspect, 1.0);
+	float r = 0.36;
+	float d = min(length(p - vec2(-0.21, 0.0)), length(p - vec2(0.21, 0.0)));
+	float lens = smoothstep(r, r - 0.025, d);
+	float ring = smoothstep(r - 0.06, r, d) * lens;
+	COLOR = vec4(0.0, 0.0, 0.0, max(1.0 - lens, ring * 0.55));
+}"""
+	bm.shader = bs
+	_bino.material = bm
+	_bino.visible = false
+	root.add_child(_bino)
+	_bino_label = UITheme.label("", 18)
+	_bino_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_bino_label.position.y -= 70
+	_bino_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bino_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_bino.add_child(_bino_label)
 
 	# top-left info
 	var info := PanelContainer.new()
@@ -237,6 +266,11 @@ func _process(delta: float) -> void:
 	if Settings.show_fps:
 		_fps.text = "%d FPS" % Engine.get_frames_per_second()
 	(_vignette.material as ShaderMaterial).set_shader_parameter("amount", me.camo_visual)
+	_bino.visible = me.binoculars
+	if me.binoculars:
+		var vs := get_viewport().get_visible_rect().size
+		(_bino.material as ShaderMaterial).set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
+		_bino_label.text = "BINOCULARS  %.1fx   (scroll to zoom)" % (Settings.fov / maxf(me.camera.fov, 1.0))
 
 
 func _update_role(me: Gorilla, gm: GameMode) -> void:

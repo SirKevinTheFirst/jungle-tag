@@ -7,9 +7,9 @@ const SOUNDS := [
 	"step_0", "step_1", "step_2", "step_3", "climb_0", "climb_1", "climb_2",
 	"vine_grab", "swing", "jump", "land", "tag", "infect",
 	"camo_on", "camo_off", "camo_ready", "round_start", "round_end",
-	"beep", "beep_high", "ui_click", "ui_hover", "music_loop",
+	"beep", "beep_high", "ui_click", "ui_hover", "music_loop", "amb_rain", "thunder",
 ]
-const LOOPED := ["amb_jungle", "amb_wind", "amb_river", "amb_waterfall", "music_loop"]
+const LOOPED := ["amb_jungle", "amb_wind", "amb_river", "amb_waterfall", "music_loop", "amb_rain"]
 
 var streams := {}
 var _music: AudioStreamPlayer
