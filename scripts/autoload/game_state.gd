@@ -31,6 +31,7 @@ var config := {
 	"max_players": 8,
 	"bot_count": 5,
 	"fill_bots": true,
+	"black_holes": true,
 	"taggers": 0,          # 0 = automatic (depends on mode and player count)
 	"seed": 1337,
 	"room_name": "Jungle Room",

@@ -330,7 +330,8 @@ func _update_black_holes(delta: float) -> void:
 		if _maze_cooldown[id] <= 0.0:
 			_maze_cooldown.erase(id)
 	if mode.phase == "play" or mode.phase == "hide":
-		_hole_timer -= delta
+		if bool(Game.config.get("black_holes", true)):
+			_hole_timer -= delta
 		if _hole_timer <= 0.0:
 			# a black hole bursts out right in front of every player (first after 60 s, then every 15-25 s)
 			_hole_timer = _hole_rng.randf_range(15.0, 25.0)

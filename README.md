@@ -61,6 +61,8 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 * **Waterfall cave**: walk along the ledge behind the waterfall and through the doorway in the rock. Inside there's a glowing crystal grotto, a big crystal chamber and a maze of torch-lit tunnels with dead ends. Two hidden tunnels come out of the plateau's cliff sides (behind bushes), and a ladder shaft climbs up to the plateau top.
 * **Weather**: every match starts in light rain under grey clouds (with the odd thunderclap). Every 3 minutes the weather flips between rain and sunshine.
 
+**Black holes** (match setup): untick it to play without black holes, the maze and the Shadow.
+
 **Taggers** (match setup): "Automatic" keeps each mode's usual number of taggers, or pick 1 to 4 taggers at the start of every round.
 
 Tagging is a touch (about 1.75 m). Clicking a mouse button when you are not next to anything climbable does a **swipe** that extends your reach briefly. Rounds restart automatically after a 9 s results screen. The host can restart the round or go back to the lobby from the pause menu.

@@ -68,8 +68,12 @@ func _process(_d: float) -> void:
 		_check(gm.roles[b] == "it", "tagging someone different works")
 		_check(world.weather.raining and world.weather.mix > 0.99, "matches start rainy")
 		world.weather._timer = 0.05
+		Game.config.black_holes = false
+		world._hole_timer = 0.2
 	if frame == 30:
 		_check(not world.weather.raining, "weather turns sunny after its timer")
+		_check(world.holes.is_empty(), "no black holes when they are switched off")
+		Game.config.black_holes = true
 		for id in world.gorillas:
 			world.gorillas[id].global_position = Vector3(300, 0, 300)
 	if frame >= 40 and frame < 70 and frame % 3 == 1:

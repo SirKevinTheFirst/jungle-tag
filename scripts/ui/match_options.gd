@@ -11,6 +11,7 @@ var _count: OptionButton
 var _bots: SpinBox
 var _fill: CheckBox
 var _taggers: OptionButton
+var _holes: CheckBox
 
 
 func _ready() -> void:
@@ -33,11 +34,14 @@ func _ready() -> void:
 	_taggers.add_item("Automatic")
 	for n in range(1, 5):
 		_taggers.add_item("%d tagger%s" % [n, "" if n == 1 else "s"])
+	_holes = CheckBox.new()
+	_holes.text = "Black holes pop up (maze + Shadow)"
 	_fill = CheckBox.new()
 	_fill.text = "Fill empty slots with AI"
 	_add("Game mode", _mode)
 	_add("Round time", _time)
 	_add("Taggers", _taggers)
+	_add("Black holes", _holes)
 	_add("Player count", _count)
 	_add("AI gorillas", _bots)
 	_add("", _fill)
@@ -55,6 +59,9 @@ func _ready() -> void:
 		_emit())
 	_taggers.item_selected.connect(func(i):
 		Game.config.taggers = i
+		_emit())
+	_holes.toggled.connect(func(on):
+		Game.config.black_holes = on
 		_emit())
 	_bots.value_changed.connect(func(v):
 		Game.config.bot_count = int(v)
@@ -98,6 +105,8 @@ func refresh() -> void:
 	_bots.max_value = int(Game.config.max_players) - 1
 	_bots.set_value_no_signal(int(Game.config.bot_count))
 	_fill.set_pressed_no_signal(bool(Game.config.fill_bots))
+	_holes.set_pressed_no_signal(bool(Game.config.get("black_holes", true)))
+	_holes.disabled = not editable
 	_bots.editable = editable and not Game.config.fill_bots
 	for c in [_mode, _time, _count, _taggers]:
 		c.disabled = not editable
