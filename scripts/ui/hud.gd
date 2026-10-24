@@ -13,6 +13,10 @@ var _role_panel: PanelContainer
 var _role_label: Label
 var _camo_meter: CamoMeter
 var _banana_box: PanelContainer
+var chat_open := false
+var _chat_box: VBoxContainer
+var _chat_edit: LineEdit
+var _chat_hint: Label
 var _banana_text: Label
 var _boost_label: Label
 var _camo_text: Label
@@ -165,6 +169,32 @@ void fragment(){
 	_speed_label.position = Vector2(24, -44)
 	root.add_child(_speed_label)
 
+	# chat: recent messages bottom-left, Enter (or T) to type
+	_chat_box = VBoxContainer.new()
+	_chat_box.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_chat_box.position = Vector2(24, -300)
+	_chat_box.custom_minimum_size = Vector2(560, 200)
+	_chat_box.alignment = BoxContainer.ALIGNMENT_END
+	_chat_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_chat_box)
+	_chat_edit = LineEdit.new()
+	_chat_edit.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_chat_edit.position = Vector2(24, -92)
+	_chat_edit.custom_minimum_size = Vector2(560, 40)
+	_chat_edit.max_length = 120
+	_chat_edit.placeholder_text = "Say something... (Enter to send, Esc to cancel)"
+	_chat_edit.visible = false
+	_chat_edit.text_submitted.connect(_send_chat)
+	_chat_edit.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventKey and ev.pressed and ev.keycode == KEY_ESCAPE:
+			_close_chat()
+			_chat_edit.accept_event())
+	root.add_child(_chat_edit)
+	_chat_hint = UITheme.label("Enter / T: chat", 14, UITheme.MUTED)
+	_chat_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_chat_hint.position = Vector2(24, -70)
+	root.add_child(_chat_hint)
+
 	# crosshair + hint
 	var cross := UITheme.label("+", 26, Color(1, 1, 1, 0.7))
 	cross.set_anchors_preset(Control.PRESET_CENTER)
@@ -296,6 +326,53 @@ func _process(delta: float) -> void:
 		_bino_label.text = "BINOCULARS  %.1fx   (scroll to zoom)" % (Settings.fov / maxf(me.camera.fov, 1.0))
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if chat_open or not event.is_action_pressed("chat"):
+		return
+	if world.pause_menu and world.pause_menu.visible:
+		return
+	chat_open = true
+	_chat_edit.text = ""
+	_chat_edit.visible = true
+	_chat_hint.visible = false
+	_chat_edit.grab_focus()
+	get_viewport().set_input_as_handled()
+
+
+func _send_chat(text: String) -> void:
+	if text.strip_edges() != "":
+		Net.send_chat(text)
+	_close_chat()
+
+
+func _close_chat() -> void:
+	chat_open = false
+	_chat_edit.release_focus()
+	_chat_edit.visible = false
+	_chat_hint.visible = true
+
+
+## Adds a line to the chat box; it fades out after a while.
+func chat_line(who: String, col: Color, text: String) -> void:
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.custom_minimum_size = Vector2(560, 0)
+	l.add_theme_font_size_override("normal_font_size", 18)
+	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.text = "[color=#%s][b]%s:[/b][/color] %s" % [col.lightened(0.35).to_html(false), who, text.replace("[", "[lb]")]
+	_chat_box.add_child(l)
+	while _chat_box.get_child_count() > 7:
+		_chat_box.get_child(0).free()
+	var tw := l.create_tween()
+	tw.tween_interval(14.0)
+	tw.tween_property(l, "modulate:a", 0.0, 1.5)
+	tw.tween_callback(l.queue_free)
+
+
 func _update_bananas(me: Gorilla) -> void:
 	if world.bananas == null:
 		return
@@ -333,6 +410,9 @@ func _update_role(me: Gorilla, gm: GameMode) -> void:
 		"hider":
 			text = "HIDER"
 			col = Color(0.3, 0.7, 0.35)
+	if gm.mode == Game.MODE_MAZE:
+		text = "ESCAPES: %d" % int(gm.stats.get(me.net_id, {}).get("escapes", 0))
+		col = Color(0.5, 0.3, 0.85)
 	if me.stun_time > 0.0:
 		text += "  (stunned)"
 	_role_label.text = text
@@ -396,13 +476,15 @@ func _update_scoreboard(gm: GameMode) -> void:
 	for c in _score_grid.get_children():
 		c.queue_free()
 	var stat_name := "Time as IT" if gm.mode == Game.MODE_CLASSIC else "Survived"
-	for h in ["Gorilla", "Role", "Tags", stat_name, ""]:
+	var maze_run := gm.mode == Game.MODE_MAZE
+	for h in ["Gorilla", "Role", "Escapes" if maze_run else "Tags", stat_name, ""]:
 		_score_grid.add_child(UITheme.label(h, 18, UITheme.ACCENT))
 	var ids: Array = world.gorillas.keys()
 	ids.sort_custom(func(a, b):
 		var sa: Dictionary = gm.stats.get(a, {"tags": 0})
 		var sb: Dictionary = gm.stats.get(b, {"tags": 0})
-		return int(sa.tags) > int(sb.tags))
+		var key := "escapes" if gm.mode == Game.MODE_MAZE else "tags"
+		return int(sa.get(key, 0)) > int(sb.get(key, 0)))
 	for id in ids:
 		var g: Gorilla = world.gorillas[id]
 		var st: Dictionary = gm.stats.get(id, {"tags": 0, "it_time": 0.0, "survived": 0.0})
@@ -411,7 +493,7 @@ func _update_scoreboard(gm: GameMode) -> void:
 			name_l.text = "> " + g.display_name
 		_score_grid.add_child(name_l)
 		_score_grid.add_child(UITheme.label(g.role.to_upper(), 18, UITheme.WARN if g.is_tagger() else UITheme.TEXT))
-		_score_grid.add_child(UITheme.label(str(st.tags), 18))
+		_score_grid.add_child(UITheme.label(str(st.get("escapes", 0) if maze_run else st.tags), 18))
 		var secs := float(st.it_time if gm.mode == Game.MODE_CLASSIC else st.survived)
 		_score_grid.add_child(UITheme.label("%d:%02d" % [int(secs) / 60, int(secs) % 60], 18))
 		_score_grid.add_child(UITheme.label("AI" if Game.is_bot_id(id) else "", 14, UITheme.MUTED))

@@ -54,7 +54,7 @@ func start_round() -> void:
 	_no_tagback.clear()
 	_infect_order.clear()
 	for id in ids:
-		stats[id] = {"tags": 0, "it_time": 0.0, "survived": 0.0}
+		stats[id] = {"tags": 0, "it_time": 0.0, "survived": 0.0, "escapes": 0}
 	var base_role := "runner"
 	var special := "it"
 	var special_count := 1
@@ -70,6 +70,8 @@ func start_round() -> void:
 	if chosen > 0:
 		special_count = chosen
 	special_count = clampi(special_count, 1, maxi(1, ids.size() - 1))
+	if mode == Game.MODE_MAZE:
+		special_count = 0   # everyone runs; the Shadow is the only tagger
 	for i in ids.size():
 		roles[ids[i]] = special if i < special_count else base_role
 	for i in special_count:
@@ -79,6 +81,8 @@ func start_round() -> void:
 	time_left = WARMUP_TIME
 	# everyone back to a spawn point
 	var spawns: Array = world.jungle.spawn_points.duplicate()
+	if mode == Game.MODE_MAZE:
+		spawns = world.maze_spawns()
 	spawns.shuffle()
 	var i := 0
 	var spawn_map := {}
@@ -86,6 +90,8 @@ func start_round() -> void:
 		spawn_map[id] = spawns[i % spawns.size()]
 		i += 1
 	Net.broadcast_event("respawn_all", {"spawns": spawn_map})
+	if mode == Game.MODE_MAZE:
+		world.start_maze_round()
 	_broadcast_state()
 
 
@@ -145,6 +151,8 @@ func _role_hint(r: String) -> String:
 			return "You are a SEEKER. Find them all!"
 		"hider":
 			return "Hide from the seekers!"
+	if mode == Game.MODE_MAZE:
+		return "Find the green EXIT as many times as you can - dodge the Shadow!"
 	return "Don't get tagged!"
 
 
@@ -193,7 +201,7 @@ func _physics_process(delta: float) -> void:
 func _accumulate_stats(delta: float) -> void:
 	for id in roles:
 		if not stats.has(id):
-			stats[id] = {"tags": 0, "it_time": 0.0, "survived": 0.0}
+			stats[id] = {"tags": 0, "it_time": 0.0, "survived": 0.0, "escapes": 0}
 		if roles[id] in ["it", "infected", "seeker"]:
 			stats[id].it_time += delta
 		else:
@@ -326,6 +334,15 @@ func _check_end() -> void:
 			elif time_left <= 0.0:
 				winners = hiders
 				result = "Hiders win: %s" % _names(winners)
+		Game.MODE_MAZE:
+			if time_left <= 0.0:
+				var best := -1
+				for id in stats:
+					best = maxi(best, int(stats[id].get("escapes", 0)))
+				for id in stats:
+					if int(stats[id].get("escapes", 0)) == best:
+						winners.append(id)
+				result = "%s escaped the most (%d time%s)" % [_names(winners), best, "" if best == 1 else "s"]
 	if result != "":
 		phase = "end"
 		time_left = END_TIME
@@ -362,7 +379,7 @@ func server_swipe(id: int) -> void:
 func on_player_left(id: int) -> void:
 	roles.erase(id)
 	stats.erase(id)
-	if not is_host() or phase == "end":
+	if not is_host() or phase == "end" or mode == Game.MODE_MAZE:
 		return
 	var has_tagger := false
 	for r in roles.values():

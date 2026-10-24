@@ -211,12 +211,79 @@ func _start_ambience() -> void:
 	Sfx.play_music()
 
 
+## Spawn spots spread over the maze, away from the exit (for Black Hole Maze Run).
+func maze_spawns() -> Array:
+	var out := []
+	for x in Maze.N:
+		for z in 3:
+			out.append(maze.cell_center(Vector2i(x, z)) + Vector3(0, 0.3, 0))
+	return out
+
+
 func random_spawn() -> Vector3:
 	return jungle.spawn_points[randi() % jungle.spawn_points.size()]
 
 
 func is_input_blocked() -> bool:
-	return pause_menu != null and pause_menu.visible
+	return (pause_menu != null and pause_menu.visible) or (hud != null and hud.chat_open)
+
+
+## Host: a new Black Hole Maze Run round. The Shadow starts at the far end, and everyone
+## gets a few seconds before it can catch them.
+func start_maze_round() -> void:
+	var shadow: Gorilla = npcs.get(SHADOW_ID)
+	if shadow:
+		shadow.global_position = maze.cell_center(Vector2i(Maze.N / 2, Maze.N - 2)) + Vector3(0, 0.3, 0)
+		shadow.velocity = Vector3.ZERO
+	for id in gorillas:
+		_maze_cooldown[id] = 6.0
+
+
+# ======================================================================== chat
+const BOT_LINES := [
+	"anyone seen the exit??", "the Shadow is right behind me!!", "this jungle is huge", "bananas taste good",
+	"who's it?", "i'm hiding, don't tell anyone", "lol", "come catch me!", "that black hole scared me",
+	"has anyone found the waterfall cave?", "brb climbing a tree", "so many tunnels...", "gg",
+]
+const BOT_REPLIES := {
+	"hi": ["hi!", "hello!", "hey :)", "yo"], "hello": ["hello!", "hi there"], "hey": ["hey!", "sup"],
+	"gg": ["gg!", "gg wp"], "where": ["no idea lol", "near the big tree?", "in the maze maybe"],
+	"lol": ["haha", "lol"], "help": ["coming!", "i can't, the Shadow is chasing me"],
+}
+var _bot_chat_timer := 30.0
+
+
+## Host: check a chat message and send it to everyone.
+func server_chat(id: int, text: String) -> void:
+	var g: Gorilla = gorillas.get(id)
+	if g == null:
+		return
+	text = text.strip_edges().replace("\n", " ").left(120)
+	if text == "":
+		return
+	Net.broadcast_event("chat", {"id": id, "text": text})
+	# bots sometimes answer people
+	if not Game.is_bot_id(id):
+		var low := text.to_lower()
+		for key in BOT_REPLIES:
+			if low.contains(key):
+				var bots := gorillas.keys().filter(func(b): return Game.is_bot_id(b))
+				if not bots.is_empty() and randf() < 0.8:
+					var bot: int = bots[randi() % bots.size()]
+					var reply: String = BOT_REPLIES[key][randi() % BOT_REPLIES[key].size()]
+					get_tree().create_timer(randf_range(1.0, 2.5)).timeout.connect(func(): server_chat(bot, reply))
+				break
+
+
+func _update_bot_chat(delta: float) -> void:
+	_bot_chat_timer -= delta
+	if _bot_chat_timer > 0.0:
+		return
+	_bot_chat_timer = randf_range(35.0, 80.0)
+	var bots := gorillas.keys().filter(func(b): return Game.is_bot_id(b))
+	if bots.is_empty():
+		return
+	server_chat(bots[randi() % bots.size()], BOT_LINES[randi() % BOT_LINES.size()])
 
 
 # ======================================================================== loop
@@ -250,6 +317,7 @@ func _physics_process(delta: float) -> void:
 			_round_started = true
 			mode.start_round()
 	_update_black_holes(delta)
+	_update_bot_chat(delta)
 	_update_powerups(delta)
 	if Net.is_online:
 		_snap_timer -= delta
@@ -330,7 +398,7 @@ func _update_black_holes(delta: float) -> void:
 		if _maze_cooldown[id] <= 0.0:
 			_maze_cooldown.erase(id)
 	if mode.phase == "play" or mode.phase == "hide":
-		if bool(Game.config.get("black_holes", true)):
+		if bool(Game.config.get("black_holes", true)) and mode.mode != Game.MODE_MAZE:
 			_hole_timer -= delta
 		if _hole_timer <= 0.0:
 			# a black hole bursts out right in front of every player (first after 60 s, then every 15-25 s)
@@ -356,7 +424,14 @@ func _update_black_holes(delta: float) -> void:
 		if maze.contains(p):
 			if Vector2(p.x - maze.exit_pos().x, p.z - maze.exit_pos().z).length() < 1.6:
 				_maze_cooldown[id] = 3.0
-				Net.broadcast_event("maze_exit", {"id": id, "pos": random_spawn()})
+				if mode.mode == Game.MODE_MAZE:
+					# maze run: score it and drop back in for another go
+					if mode.phase == "play" and mode.stats.has(id):
+						mode.stats[id].escapes = int(mode.stats[id].get("escapes", 0)) + 1
+					var spots := maze_spawns()
+					Net.broadcast_event("maze_exit", {"id": id, "pos": spots[randi() % spots.size()], "again": true})
+				else:
+					Net.broadcast_event("maze_exit", {"id": id, "pos": random_spawn()})
 			elif shadow and shadow.stun_time <= 0.0 and shadow.global_position.distance_to(p) < 1.7:
 				_maze_cooldown[id] = 3.0
 				Net.broadcast_event("maze_caught", {"id": id, "pos": maze.start_pos()})
@@ -436,6 +511,12 @@ func on_game_event(type: String, d: Dictionary) -> void:
 			bananas.on_eaten(d)
 		"banana_boost":
 			bananas.on_boost(d)
+		"chat":
+			var g: Gorilla = gorillas.get(d.id)
+			if g:
+				hud.chat_line(g.display_name, g.color, d.text)
+				g.say(d.text)
+				Sfx.play("ui_hover", -6.0, 1.3)
 		"weather":
 			weather.set_raining(bool(d.rain))
 		"hole_open":
@@ -469,7 +550,10 @@ func on_game_event(type: String, d: Dictionary) -> void:
 						hud.show_message("SUCKED INTO A BLACK HOLE!", "Find the green EXIT - and run from the Shadow")
 						Sfx.play("round_end", -2.0, 0.6)
 					"maze_exit":
-						hud.show_message("You escaped the maze!", "Back to the jungle")
+						if d.get("again", false):
+							hud.show_message("ESCAPED! +1", "Back into the maze - go again!")
+						else:
+							hud.show_message("You escaped the maze!", "Back to the jungle")
 						Sfx.play("camo_ready", 0.0)
 					"maze_caught":
 						hud.show_message("The Shadow got you!", "Back to the start of the maze...")

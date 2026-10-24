@@ -137,6 +137,8 @@ var model: GorillaModel
 var collider: CollisionShape3D
 var capsule: CapsuleShape3D
 var nameplate: Label3D
+var _bubble: Label3D
+var _bubble_time := 0.0
 var role_ring: MeshInstance3D
 var camera_pivot: Node3D
 var spring_arm: SpringArm3D
@@ -181,6 +183,27 @@ func _ready() -> void:
 		_build_camera()
 		nameplate.visible = false
 	_net_pos = global_position
+
+
+## Shows a chat message in a speech bubble over the gorilla's head for a few seconds.
+func say(text: String) -> void:
+	if _bubble == null:
+		_bubble = Label3D.new()
+		_bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_bubble.pixel_size = 0.005
+		_bubble.font_size = 40
+		_bubble.outline_size = 14
+		_bubble.modulate = Color(1, 1, 0.9)
+		_bubble.outline_modulate = Color(0.1, 0.08, 0.05)
+		_bubble.width = 600.0
+		_bubble.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_bubble.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		_bubble.position = Vector3(0, 2.6, 0)
+		_bubble.visibility_range_end = 40.0
+		add_child(_bubble)
+	_bubble.text = text
+	_bubble.visible = true
+	_bubble_time = 6.0
 
 
 func _build_nameplate() -> void:
@@ -1061,6 +1084,9 @@ func _update_visuals(delta: float) -> void:
 		role_ring.rotate_y(delta * 2.5)
 		(role_ring.material_override as StandardMaterial3D).albedo_color.a = 1.0 - eff * 0.8
 		role_ring.transparency = eff * 0.85
+	if _bubble_time > 0.0:
+		_bubble_time -= delta
+		_bubble.visible = _bubble_time > 0.0 and control != Ctrl.LOCAL
 	_flash = maxf(0.0, _flash - delta * 2.5)
 	model.set_flash(_flash)
 	if camera_pivot:
@@ -1072,8 +1098,8 @@ func _update_visuals(delta: float) -> void:
 		else:
 			camera.h_offset = 0.0
 			camera.v_offset = 0.0
-		var want_bino := control == Ctrl.LOCAL and Input.is_action_pressed("binoculars") \
-			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		var want_bino: bool = control == Ctrl.LOCAL and Input.is_action_pressed("binoculars") \
+			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not (world and world.is_input_blocked())
 		if want_bino != binoculars:
 			binoculars = want_bino
 			_apply_camera_mode()

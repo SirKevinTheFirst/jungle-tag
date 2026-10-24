@@ -270,6 +270,21 @@ func request_camo(on: bool) -> void:
 		world.server_camo_request(multiplayer.get_remote_sender_id(), on)
 
 
+## Client -> host: a chat message.
+@rpc("any_peer", "reliable")
+func request_chat(text: String) -> void:
+	if world and is_host():
+		world.server_chat(multiplayer.get_remote_sender_id(), text)
+
+
+func send_chat(text: String) -> void:
+	if is_host():
+		if world:
+			world.server_chat(my_id(), text)
+	else:
+		request_chat.rpc_id(1, text)
+
+
 ## Client -> host: wants to use 10 bananas for a sprint boost.
 @rpc("any_peer", "reliable")
 func request_banana() -> void:

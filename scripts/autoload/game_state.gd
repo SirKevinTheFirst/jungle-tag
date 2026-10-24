@@ -4,7 +4,8 @@ extends Node
 const MODE_CLASSIC := 0
 const MODE_INFECTION := 1
 const MODE_HIDE_SEEK := 2
-const MODE_NAMES := ["Classic Tag", "Infection", "Jungle Hide and Seek"]
+const MODE_MAZE := 3
+const MODE_NAMES := ["Classic Tag", "Infection", "Jungle Hide and Seek", "Black Hole Maze Run"]
 const PLAYER_COUNTS := [2, 4, 6, 8, 10, 12, 16]
 const ROUND_TIMES := [60, 120, 180, 300, 480, 600]
 const BOT_ID_BASE := 100000

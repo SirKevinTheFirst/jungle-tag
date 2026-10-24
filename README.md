@@ -65,6 +65,10 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 
 **Taggers** (match setup): "Automatic" keeps each mode's usual number of taggers, or pick 1 to 4 taggers at the start of every round.
 
+* **Black Hole Maze Run**: everyone (players and AI) starts inside the black hole maze. The Shadow hunts you. Each time you reach the green EXIT you score an escape and drop back in. Most escapes when time runs out wins.
+
+**Chat**: press **Enter** (or **T**), type, and press Enter to send (Esc cancels). Messages show bottom-left and in a bubble over your gorilla. The AI gorillas chat too, and sometimes answer you.
+
 Tagging is a touch (about 1.75 m). Clicking a mouse button when you are not next to anything climbable does a **swipe** that extends your reach briefly. Rounds restart automatically after a 9 s results screen. The host can restart the round or go back to the lobby from the pause menu.
 
 ## 4. Playing online with friends
@@ -134,6 +138,8 @@ tools/test_runner.tscn     headless smoke test (terrain, climb, vine, camo timer
 tools/net_test.tscn        two-process host/client test (password join, sync, server camo)
 tools/rules_test.tscn      taggers option, no tag-backs, weather, bananas
 tools/cave_test.tscn       walks through the waterfall cave to every exit
+tools/maze_float_test.tscn every black hole maze cell: no floating, no swimming
+tools/maze_run_test.tscn   Black Hole Maze Run round and chat
 tools/screenshot.tscn      renders screenshots of a match; menu_shot.tscn does the menus
 ```
 
