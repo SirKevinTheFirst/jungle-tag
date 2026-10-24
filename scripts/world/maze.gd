@@ -113,13 +113,21 @@ func _build_visuals() -> void:
 	mmi.material_override = mat
 	mmi.layers = LAYER
 	add_child(mmi)
+	# soft purple fill so the walls are always just visible (only lights the maze)
+	var fill := DirectionalLight3D.new()
+	fill.light_color = Color(0.55, 0.45, 0.85)
+	fill.light_energy = 0.45
+	fill.light_cull_mask = LAYER
+	fill.shadow_enabled = false
+	fill.rotation_degrees = Vector3(-60, 30, 0)
+	add_child(fill)
 	# eerie purple lights along the way, glowing mushrooms, and the green exit
-	for i in 7:
+	for i in 12:
 		var cell := Vector2i(rng.randi_range(0, N - 1), rng.randi_range(0, N - 1))
 		var l := OmniLight3D.new()
-		l.light_color = Color(0.6, 0.3, 1.0)
-		l.light_energy = 1.6
-		l.omni_range = 9.0
+		l.light_color = Color(0.65, 0.4, 1.0)
+		l.light_energy = 2.4
+		l.omni_range = 11.0
 		l.position = cell_center(cell) + Vector3(0, WALL_H - 0.6, 0)
 		add_child(l)
 	var mush_mat := StandardMaterial3D.new()

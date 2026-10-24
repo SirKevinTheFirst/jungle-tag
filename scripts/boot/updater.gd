@@ -4,7 +4,8 @@ extends Control
 ##
 ## Updates live on the repository's "updates" branch: version.json ({"build": N}) and game.pck.
 ## The exe runs a downloaded pack with "--main-pack <file>", which replaces everything,
-## autoloads included. "--updated" stops it from updating twice in one launch.
+## autoloads included. A downloaded pack ("--updated") still checks for an even newer build,
+## so updates keep coming; it never re-downloads the build it already has.
 
 const BASE_URL := "https://raw.githubusercontent.com/SirKevinTheFirst/jungle-tag/updates/"
 const DIR := "user://updates/"
@@ -16,6 +17,7 @@ var _http: HTTPRequest
 var _base := BASE_URL
 var _remote := 0
 var _downloading := false
+var _updated := false
 
 
 static func build() -> int:
@@ -48,14 +50,17 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--update-url="):
 			_base = a.trim_prefix("--update-url=")
-	var skip: bool = OS.has_feature("editor") and not args.has("--force-update")
-	if skip or args.has("--no-update") or args.has("--updated"):
+	# (tests run the editor binary headless: JT_UPDATER_TEST=1 and JT_UPDATER_ARGS carry that over)
+	var testing := OS.get_environment("JT_UPDATER_TEST") == "1"
+	var skip: bool = OS.has_feature("editor") and not args.has("--force-update") and not testing
+	if skip or args.has("--no-update"):
 		_go.call_deferred()
 		return
+	_updated = args.has("--updated")
 	DirAccess.make_dir_recursive_absolute(DIR)
-	# an update downloaded earlier (maybe while offline now): start it straight away
+	# an update downloaded earlier: start it straight away (it checks for anything newer itself)
 	var cached := _cached_build()
-	if cached > build() and FileAccess.file_exists(_pck_path(cached)):
+	if not _updated and cached > build() and FileAccess.file_exists(_pck_path(cached)):
 		_relaunch.call_deferred(cached)
 		return
 	_http = HTTPRequest.new()
@@ -80,7 +85,10 @@ func _on_version(result: int, code: int, _h: PackedStringArray, body: PackedByte
 		_go()
 		return
 	_remote = int(data.build)
-	if _remote <= build():
+	var have := build()
+	if _updated:
+		have = maxi(have, _cached_build())   # never fetch the same build twice
+	if _remote <= have:
 		_go()
 		return
 	_label.text = "Downloading update %d..." % _remote
@@ -129,6 +137,9 @@ func _pck_path(b: int) -> String:
 
 func _relaunch(b: int) -> void:
 	var args := ["--main-pack", ProjectSettings.globalize_path(_pck_path(b)), "--", "--updated"]
+	if OS.get_environment("JT_UPDATER_ARGS") != "":
+		args = Array(OS.get_environment("JT_UPDATER_ARGS").split(" ")) + args
+		args.append("--update-url=" + _base)
 	var pid := OS.create_process(OS.get_executable_path(), args)
 	if pid <= 0:
 		_go()
