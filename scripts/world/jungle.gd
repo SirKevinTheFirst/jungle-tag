@@ -151,7 +151,9 @@ func is_in_water(p: Vector3) -> bool:
 		return false
 	if plateau_mask(p.x, p.z) > 0.5:
 		return false
-	return ground_height(p.x, p.z) < WATER_Y
+	# far below the riverbed (the black hole maze, the cave) there is no water
+	var gh := ground_height(p.x, p.z)
+	return gh < WATER_Y and p.y > gh - 3.0
 
 
 func is_river(x: float, z: float, margin: float = 0.0) -> bool:
