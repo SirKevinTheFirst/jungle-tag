@@ -1,5 +1,5 @@
 extends Control
-## Main menu: Play (solo with AI), Host Game, Join Game, Player Count, Settings, Quit.
+## Main menu: Play (solo with AI), Black Hole Maze Run, Host Game, Join Game, Player Count, Settings, Quit.
 
 var _right: PanelContainer
 var _pages := {}
@@ -44,6 +44,7 @@ func _ready() -> void:
 	buttons.add_theme_constant_override("separation", 10)
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_child(UITheme.button("Play", _on_play, 340))
+	buttons.add_child(UITheme.button("Black Hole Maze Run", _on_maze_run, 340))
 	buttons.add_child(UITheme.button("Host Game", func(): _show("host"), 340))
 	buttons.add_child(UITheme.button("Join Game", func(): _show("join"), 340))
 	_count_button = UITheme.button("", _on_count, 340)
@@ -174,6 +175,11 @@ func _on_count() -> void:
 
 
 func _on_play() -> void:
+	Net.start_solo()
+
+
+func _on_maze_run() -> void:
+	Game.config.mode = Game.MODE_MAZE
 	Net.start_solo()
 
 
