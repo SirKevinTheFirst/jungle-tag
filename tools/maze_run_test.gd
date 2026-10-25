@@ -45,7 +45,13 @@ func _physics_process(_d: float) -> void:
 		var lines: int = world.hud._chat_box.get_child_count()
 		_check(lines >= 2, "chat message shows, and a bot answered (%d lines)" % lines)
 		_check(world.local._bubble != null and world.local._bubble.text == "hello everyone", "chat shows over the gorilla's head")
-	if world.mode.phase == "end" and frame > 60 * 10:
+		Net.send_chat("purple monkey dishwasher")
+	if frame == 60 * 10:
+		var lines: int = world.hud._chat_box.get_child_count()
+		_check(lines >= 4, "any message gets a bot reply (%d lines)" % lines)
+		_check(world._bot_reply("this is fun", "Kev", "Bo") in world.BOT_ANY.map(func(l): return l.replace("%s", "Kev")), "'this' doesn't count as 'hi'")
+		_check(world._bot_reply("where is the exit", "Kev", "Bo") in ["no idea lol", "near the big tree?", "try the waterfall", "follow the green light!"], "topic replies work")
+	if world.mode.phase == "end" and frame > 60 * 11:
 		var total := 0
 		for id in world.mode.stats:
 			total += int(world.mode.stats[id].get("escapes", 0))
