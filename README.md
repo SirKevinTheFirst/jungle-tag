@@ -67,7 +67,7 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 
 * **Black Hole Maze Run**: everyone (players and AI) starts inside the black hole maze. The Shadow hunts you. Each time you reach the green EXIT you score an escape and drop back in. Most escapes when time runs out wins.
 
-**Chat**: press **Enter** (or **T**), type, and press Enter to send (Esc cancels). Messages show bottom-left and in a bubble over your gorilla. The nearest AI gorilla always answers you (or the one you name), and the AI gorillas chat with each other too.
+**Chat**: press **Enter** (or **T**), type, and press Enter to send (Esc cancels). Messages show bottom-left and in a bubble over your gorilla. The AI gorillas chat like online players (scripts/ai/bot_chat.gd): each has a typing style, they react to tags, black holes, the Shadow, weather and round start/end, trash talk, answer you (the one you name, the one you were just talking to, or the nearest) and chat with each other.
 
 Tagging is a touch (about 1.75 m). Clicking a mouse button when you are not next to anything climbable does a **swipe** that extends your reach briefly. Rounds restart automatically after a 9 s results screen. The host can restart the round or go back to the lobby from the pause menu.
 

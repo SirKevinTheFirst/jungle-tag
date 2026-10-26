@@ -49,8 +49,11 @@ func _physics_process(_d: float) -> void:
 	if frame == 60 * 10:
 		var lines: int = world.hud._chat_box.get_child_count()
 		_check(lines >= 4, "any message gets a bot reply (%d lines)" % lines)
-		_check(world._bot_reply("this is fun", "Kev", "Bo") in world.BOT_ANY.map(func(l): return l.replace("%s", "Kev")), "'this' doesn't count as 'hi'")
-		_check(world._bot_reply("where is the exit", "Kev", "Bo") in ["no idea lol", "near the big tree?", "try the waterfall", "follow the green light!"], "topic replies work")
+		_check(BotChat.topic_of("this is fun") == "any", "'this' doesn't count as 'hi'")
+		_check(BotChat.topic_of("where is the exit") == "where", "topic replies work")
+		_check(BotChat.topic_of("ur such a noob") == "insult", "trash talk gets noticed")
+		var styled := BotChat.make_line("hi %s", {"s": "Kev"}, "Bo", "Mango", "hype")
+		_check(styled.to_lower().begins_with("hi kev"), "lines get styled (%s)" % styled)
 	if world.mode.phase == "end" and frame > 60 * 11:
 		var total := 0
 		for id in world.mode.stats:

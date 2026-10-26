@@ -7,6 +7,7 @@ const GorillaScript := preload("res://scripts/player/gorilla.gd")
 var jungle: Jungle
 var gorillas := {}          # id -> Gorilla
 var local: Gorilla
+var bot_chat: BotChat
 var mode: GameMode
 var hud: HUD
 var weather: Weather
@@ -75,6 +76,10 @@ func _ready() -> void:
 	weather.name = "Weather"
 	add_child(weather)
 	weather.setup(self)
+	bot_chat = BotChat.new()
+	bot_chat.name = "BotChat"
+	add_child(bot_chat)
+	bot_chat.setup(self)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if Net.is_host():
 		for id in Net.ready_peers:
@@ -240,37 +245,7 @@ func start_maze_round() -> void:
 
 
 # ======================================================================== chat
-const BOT_LINES := [
-	"anyone seen the exit??", "the Shadow is right behind me!!", "this jungle is huge", "bananas taste good",
-	"who's it?", "i'm hiding, don't tell anyone", "lol", "come catch me!", "that black hole scared me",
-	"has anyone found the waterfall cave?", "brb climbing a tree", "so many tunnels...", "gg",
-]
-# keyword groups -> replies ("%s" = the name of whoever spoke). First match wins.
-const BOT_REPLIES := [
-	[["hi", "hello", "hey", "yo", "sup"], ["hi %s!", "hello!", "hey %s :)", "yo!", "sup %s"]],
-	[["bye", "gtg", "leaving"], ["bye %s!", "cya!", "noooo stay"]],
-	[["gg", "good game"], ["gg!", "gg wp %s", "gg that was fun"]],
-	[["how are you", "how r u", "wassup", "what's up", "whats up"], ["good! you?", "running for my life lol", "great, just ate a banana"]],
-	[["who", "it?", "tagger"], ["not me!", "i think %s is it lol", "idk but RUN"]],
-	[["where", "exit", "find"], ["no idea lol", "near the big tree?", "try the waterfall", "follow the green light!"]],
-	[["help", "save"], ["coming %s!", "i can't, the Shadow is chasing me", "on my way!"]],
-	[["banana"], ["i love bananas", "eat 10 and press F!", "there's some in the cave"]],
-	[["shadow", "maze", "black hole", "hole"], ["the Shadow is so creepy", "i got lost in there", "jump in, it's fun!"]],
-	[["cave", "waterfall", "secret"], ["the cave is behind the waterfall!", "there's crystals in there", "i found a secret tunnel"]],
-	[["lol", "haha", "lmao", "xd"], ["haha", "lol", "LOL %s"]],
-	[["you're it", "ur it", "tag", "got you", "gotcha"], ["noooo", "i'll get you back!", "not fair!!"]],
-	[["friend", "team"], ["sure let's team up!", "best friends %s"]],
-	[["name"], ["i'm %b!", "call me %b"]],
-	[["?"], ["hmm good question", "maybe?", "yes!", "no way", "idk %s"]],
-]
-const BOT_ANY := [
-	"ok %s!", "true", "haha same", "cool", "nice!", "for real?", "you said it %s", "lol ok",
-	"i agree", "wait what", "can't talk, running!", "omg yes",
-]
-var _bot_chat_timer := 30.0
-
-
-## Host: check a chat message and send it to everyone.
+## Host: check a chat message and send it to everyone. The AI gorillas (BotChat) answer.
 func server_chat(id: int, text: String, depth := 0) -> void:
 	var g: Gorilla = gorillas.get(id)
 	if g == null:
@@ -279,72 +254,7 @@ func server_chat(id: int, text: String, depth := 0) -> void:
 	if text == "":
 		return
 	Net.broadcast_event("chat", {"id": id, "text": text})
-	# a nearby bot answers every player message; bots sometimes answer each other too
-	var human := not Game.is_bot_id(id)
-	if depth > 1 or (not human and randf() > 0.6):
-		return
-	var bot := _pick_bot_replier(g, text)
-	if bot == -1:
-		return
-	var reply := _bot_reply(text, g.display_name, (gorillas[bot] as Gorilla).display_name)
-	get_tree().create_timer(randf_range(1.0, 2.5)).timeout.connect(func():
-		if gorillas.has(bot):
-			server_chat(bot, reply, depth + 1))
-
-
-## A bot named in the message, otherwise the nearest one.
-func _pick_bot_replier(speaker: Gorilla, text: String) -> int:
-	var low := text.to_lower()
-	var best := -1
-	var best_d := INF
-	for b in gorillas:
-		if not Game.is_bot_id(b) or gorillas[b] == speaker:
-			continue
-		var bg: Gorilla = gorillas[b]
-		if bg.display_name != "" and low.contains(bg.display_name.to_lower()):
-			return b
-		var d := bg.global_position.distance_to(speaker.global_position)
-		if d < best_d:
-			best_d = d
-			best = b
-	return best
-
-
-func _bot_reply(text: String, speaker: String, me: String) -> String:
-	var low := text.to_lower()
-	var words := PackedStringArray()
-	var clean := ""
-	for c in low:
-		clean += c if (c >= "a" and c <= "z") or (c >= "0" and c <= "9") else " "
-	words = clean.split(" ", false)
-	var pool: Array = BOT_ANY
-	for group in BOT_REPLIES:
-		var hit := false
-		for key: String in group[0]:
-			if not key.is_valid_identifier():
-				hit = low.contains(key)   # phrases and punctuation
-			else:
-				for w in words:
-					if w == key or (key.length() >= 4 and w.begins_with(key)):
-						hit = true
-			if hit:
-				break
-		if hit:
-			pool = group[1]
-			break
-	var line: String = pool[randi() % pool.size()]
-	return line.replace("%s", speaker).replace("%b", me)
-
-
-func _update_bot_chat(delta: float) -> void:
-	_bot_chat_timer -= delta
-	if _bot_chat_timer > 0.0:
-		return
-	_bot_chat_timer = randf_range(35.0, 80.0)
-	var bots := gorillas.keys().filter(func(b): return Game.is_bot_id(b))
-	if bots.is_empty():
-		return
-	server_chat(bots[randi() % bots.size()], BOT_LINES[randi() % BOT_LINES.size()])
+	bot_chat.on_chat(id, text, depth)
 
 
 # ======================================================================== loop
@@ -378,7 +288,6 @@ func _physics_process(delta: float) -> void:
 			_round_started = true
 			mode.start_round()
 	_update_black_holes(delta)
-	_update_bot_chat(delta)
 	_update_powerups(delta)
 	if Net.is_online:
 		_snap_timer -= delta
@@ -551,6 +460,8 @@ func _pick_hole_spot(g: Gorilla) -> Vector3:
 
 
 func on_game_event(type: String, d: Dictionary) -> void:
+	if Net.is_host() and bot_chat:
+		bot_chat.on_event(type, d)
 	match type:
 		"powerup_spawn":
 			var pu := PowerUp.new()
