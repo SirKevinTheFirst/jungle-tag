@@ -33,6 +33,12 @@ var _sprint := true
 var _reaction := 0.0
 var _time := 0.0
 var _jump_cool := 0.0
+# a player told this bot what to do in chat (see BotChat): follow, come, stay, hide, run, tag...
+var order := ""
+var order_from := -1
+var order_target := -1
+var _order_until := 0.0
+var _dance := 0.0
 
 
 func setup(p_g: Gorilla, p_world: Node, p_seed: int) -> void:
@@ -86,6 +92,8 @@ func _decide() -> void:
 	var my_pos := g.global_position
 	_crouch = false
 	_sprint = true
+	if order != "" and _follow_order(my_pos):
+		return
 	if g.is_tagger():
 		_decide_tagger(gm, my_pos)
 	else:
@@ -207,6 +215,84 @@ func _decide_runner(gm: GameMode, my_pos: Vector3) -> void:
 		_wander(my_pos)
 
 
+## Called by BotChat when a player gives this bot an order.
+func give_order(kind: String, from_id: int, target_id := -1) -> void:
+	order = kind
+	order_from = from_id
+	order_target = target_id
+	_order_until = _time + {"follow": 90.0, "come": 30.0, "stay": 25.0, "hide": 45.0, "run": 6.0,
+		"chase": 30.0, "dance": 6.0}.get(kind, 0.1)
+	_hide_spot = {}
+	_hide_reached = false
+	match kind:
+		"jump":
+			g.input.jump = true
+		"camo":
+			if g.camo_cooldown <= 0.0 and not g.camo_active:
+				g.input.camo = true
+		"climb":
+			var tree := _nearest_tree(g.global_position, 25.0)
+			if not tree.is_empty():
+				_start_tree_climb(tree, tree.pos.y + tree.height * 0.5)
+		"dance":
+			_dance = 6.0
+	_think = 0.0
+
+
+## Returns true while an order decides what this bot does.
+func _follow_order(my_pos: Vector3) -> bool:
+	var boss: Gorilla = world.gorillas.get(order_from)
+	if _time > _order_until or (boss == null and order in ["follow", "come", "run"]):
+		order = ""
+		return false
+	match order:
+		"follow", "come":
+			var behind := boss.global_position
+			var d := my_pos.distance_to(behind)
+			if d < 3.0:
+				_has_goal = false
+				if order == "come":
+					order = ""
+			else:
+				_set_goal(behind, "follow")
+				_sprint = d > 6.0
+			return true
+		"stay":
+			_has_goal = false
+			_crouch = true
+			return true
+		"hide":
+			if _hide_spot.is_empty():
+				_hide_spot = _random_spot(my_pos, 50.0, true)
+				if _hide_spot.is_empty():
+					order = ""
+					return false
+			var sp: Vector3 = _hide_spot.pos
+			if my_pos.distance_to(sp) < maxf(1.5, _hide_spot.radius * 0.6):
+				_has_goal = false
+				_crouch = true
+			else:
+				_set_goal(sp, "hide")
+			return true
+		"run":
+			var away := my_pos - boss.global_position
+			away.y = 0.0
+			_set_goal(my_pos + away.normalized() * 18.0, "flee")
+			return true
+		"chase":
+			var t: Gorilla = world.gorillas.get(order_target)
+			if t == null:
+				order = ""
+				return false
+			_set_goal(t.global_position, "chase")
+			return true
+		"dance":
+			_has_goal = false
+			return true
+	order = ""
+	return false
+
+
 func _wander(my_pos: Vector3) -> void:
 	var a := rng.randf() * TAU
 	var r := rng.randf_range(10.0, 35.0)
@@ -285,6 +371,11 @@ func _steer(delta: float) -> void:
 	inp.grab_l = false
 	inp.grab_r = false
 	inp.jump_held = false
+	if _dance > 0.0:
+		_dance -= delta
+		inp.yaw += delta * 9.0
+		if fmod(_dance, 1.0) < delta and g.state == Gorilla.State.GROUND:
+			inp.jump = true
 	if not _has_goal or g.frozen or g.stun_time > 0.0:
 		return
 	var pos := g.global_position

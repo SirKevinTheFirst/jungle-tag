@@ -69,6 +69,8 @@ The right side of the menu is the **Match Setup**: your username, your gorilla c
 
 **Chat**: press **Enter** (or **T**), type, and press Enter to send (Esc cancels). Messages show bottom-left and in a bubble over your gorilla. The AI gorillas chat like online players (scripts/ai/bot_chat.gd): each has a typing style, they react to tags, black holes, the Shadow, weather and round start/end, trash talk, answer you (the one you name, the one you were just talking to, or the nearest) and chat with each other.
 
+**Bossing the AI around**: type an order in chat and the gorillas listen: `follow me`, `come here`, `stay`, `hide`, `run away`, `tag <name>` / `tag me`, `camo`, `climb`, `jump`, `dance`. Put a gorilla's name in it to order that one (`Mango hide`), say `everyone` for all of them, or leave it out and the one you are chatting with obeys.
+
 Tagging is a touch (about 1.75 m). Clicking a mouse button when you are not next to anything climbable does a **swipe** that extends your reach briefly. Rounds restart automatically after a 9 s results screen. The host can restart the round or go back to the lobby from the pause menu.
 
 ## 4. Playing online with friends
@@ -140,6 +142,7 @@ tools/rules_test.tscn      taggers option, no tag-backs, weather, bananas
 tools/cave_test.tscn       walks through the waterfall cave to every exit
 tools/maze_float_test.tscn every black hole maze cell: no floating, no swimming
 tools/maze_run_test.tscn   Black Hole Maze Run round and chat
+tools/command_test.tscn    AI gorillas obey chat orders
 tools/screenshot.tscn      renders screenshots of a match; menu_shot.tscn does the menus
 ```
 

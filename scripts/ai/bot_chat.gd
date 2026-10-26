@@ -125,6 +125,8 @@ func on_chat(id: int, text: String, depth: int) -> void:
 		return
 	if human:
 		_partner[id] = [bot, _time]
+		if _try_command(id, text, bot):
+			return
 	var topic := topic_of(text)
 	_say(bot, topic, {"s": _name(id)}, 0.0, depth + 1, human)
 	# sometimes a second bot joins in
@@ -151,6 +153,128 @@ func _pick_replier(speaker: int, text: String) -> int:
 			best_d = d
 			best = b
 	return best
+
+
+## order -> phrases that ask for it. Checked in order, first hit wins.
+const COMMANDS := [
+	["follow", ["follow me", "follow", "come with me", "duo with me", "stick with me"]],
+	["come", ["come here", "come to me", "over here", "come"]],
+	["stay", ["stop", "stay", "wait here", "wait for me", "freeze", "dont move", "don't move", "stay here"]],
+	["hide", ["hide", "go hide"]],
+	["run", ["run away", "go away", "leave me alone", "run", "shoo", "scram"]],
+	["chase", ["tag ", "chase ", "get ", "attack "]],
+	["camo", ["camo", "camouflage", "turn invisible", "go invisible"]],
+	["climb", ["climb", "go up a tree", "get in a tree"]],
+	["jump", ["jump"]],
+	["dance", ["dance", "spin", "emote"]],
+]
+const ACKS := {
+	"follow": ["ok following u", "omw", "right behind u %s", "lead the way", "ok im ur shadow lol"],
+	"come": ["omw", "coming", "on my way %s", "ok ok im coming"],
+	"stay": ["ok im staying", "fine", "ok i wont move", "frozen lol"],
+	"hide": ["ok hiding", "shhh im hiding", "they'll never find me", "ok going to hide"],
+	"run": ["ok bye lol", "fine im leaving", "rude but ok", "running!!"],
+	"chase": ["on it", "im gonna get %t", "%t ur going down", "ok chasing %t"],
+	"camo": ["invisible mode", "u cant see me now", "camo on"],
+	"climb": ["ok climbing", "going up", "tree time"],
+	"jump": ["boing", "like this?", "jump jump"],
+	"dance": ["dance party", "look at my moves", "lets gooo"],
+}
+const EVERYONE := ["everyone", "everybody", "all of you", "you all", "yall", "y'all", "guys", "team", "gorillas"]
+
+
+## A player's message might be an order ("follow me", "Mango hide", "everyone come here").
+## The named bots obey, or everyone for "everyone ...", or else the bot they're talking to.
+func _try_command(id: int, text: String, default_bot: int) -> bool:
+	var low := " " + text.to_lower() + " "
+	var kind := ""
+	for c in COMMANDS:
+		for phrase: String in c[1]:
+			if _has_phrase(low, phrase):
+				kind = c[0]
+				break
+		if kind != "":
+			break
+	if kind == "":
+		return false
+	var bots: Array = []
+	var target := -1
+	for b in _bots(id):
+		if _mentions(low, _name(b)):
+			bots.append(b)
+	if kind == "chase":
+		# "tag Mango" / "Kiwi get Mango" / "Kiwi tag me": whoever is named after the verb
+		var verb := 9999
+		for phrase: String in COMMANDS[5][1]:
+			var at := low.find(phrase)
+			if at != -1:
+				verb = mini(verb, at)
+		var best_at: float = INF
+		for o in world.gorillas:
+			var at := _mention_at(low, _name(o))
+			if at > verb and at < best_at:
+				best_at = at
+				target = o
+		if target == -1 and (_has_phrase(low.substr(verb), "me") or _has_phrase(low.substr(verb), "us")):
+			target = id
+		if target == -1:
+			return false
+		bots.erase(target)
+	var everyone := false
+	for w in EVERYONE:
+		if _has_phrase(low, w):
+			everyone = true
+	if everyone:
+		bots = _bots(id)
+		bots.erase(target)
+	if bots.is_empty():
+		if default_bot == target:
+			return false
+		bots = [default_bot]
+	var said := 0
+	for b in bots:
+		var brain = world.gorillas[b].get_node_or_null("Brain")
+		if brain == null:
+			continue
+		brain.give_order(kind, id, target)
+		if said < 3:   # don't flood the chat when everyone obeys
+			_say(b, "ack_" + kind, {"s": _name(id), "t": _name(target)}, randf_range(0.0, 1.5) * said, 2, true)
+			said += 1
+	return said > 0
+
+
+static func _has_phrase(low: String, phrase: String) -> bool:
+	phrase = phrase.strip_edges()
+	var i := low.find(phrase)
+	while i != -1:
+		var before := low[i - 1] if i > 0 else " "
+		var after := low[i + phrase.length()] if i + phrase.length() < low.length() else " "
+		if not _is_letter(before) and not _is_letter(after):
+			return true
+		i = low.find(phrase, i + 1)
+	return false
+
+
+static func _is_letter(c: String) -> bool:
+	return (c >= "a" and c <= "z") or c == "'"
+
+
+func _mentions(low: String, full_name: String) -> bool:
+	return _mention_at(low, full_name) != -1
+
+
+## Where a gorilla's name (or its first word, like "kong" for "Kong Kim") appears, or -1.
+func _mention_at(low: String, full_name: String) -> int:
+	var n := full_name.to_lower().replace("[ai]", "").strip_edges()
+	if n == "":
+		return -1
+	var at := low.rfind(n)
+	if at != -1:
+		return at
+	var first := n.split(" ")[0]
+	if first.length() >= 3 and _has_phrase(low, first):
+		return low.rfind(first)
+	return -1
 
 
 static func _words(low: String) -> PackedStringArray:
@@ -232,7 +356,7 @@ func _say(bot: int, topic: String, names: Dictionary, delay: float, depth := 1, 
 	if not force and _time - float(_last_said.get(bot, -99.0)) < 4.0:
 		return
 	_last_said[bot] = _time
-	var pool: Array = LINES.get(topic, LINES.any)
+	var pool: Array = ACKS[topic.trim_prefix("ack_")] if topic.begins_with("ack_") else LINES.get(topic, LINES.any)
 	var line := make_line(pool[randi() % pool.size()], names, _name(bot), _it_name(), _style_of(bot))
 	var wait := delay + 0.6 + line.length() * randf_range(0.05, 0.11)
 	get_tree().create_timer(wait).timeout.connect(func():
