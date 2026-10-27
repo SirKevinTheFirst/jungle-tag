@@ -1122,6 +1122,18 @@ func set_role(r: String) -> void:
 		"it", "seeker":
 			model.set_color(color)
 			nameplate.modulate = Color(1.0, 0.45, 0.35)
+		"frozen":
+			model.set_color(Color(0.55, 0.85, 1.0))
+			nameplate.modulate = Color(0.6, 0.9, 1.0)
+		"out":
+			model.set_color(Color(0.32, 0.32, 0.34))
+			nameplate.modulate = Color(0.6, 0.6, 0.6)
+		"red":
+			model.set_color(color.lerp(Color(0.9, 0.15, 0.1), 0.65))
+			nameplate.modulate = Color(1.0, 0.45, 0.4)
+		"blue":
+			model.set_color(color.lerp(Color(0.15, 0.35, 0.95), 0.65))
+			nameplate.modulate = Color(0.5, 0.65, 1.0)
 		_:
 			model.set_color(color)
 			nameplate.modulate = Color.WHITE

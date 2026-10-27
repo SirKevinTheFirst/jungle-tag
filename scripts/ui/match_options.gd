@@ -12,6 +12,7 @@ var _bots: SpinBox
 var _fill: CheckBox
 var _taggers: OptionButton
 var _holes: CheckBox
+var _desc: Label
 
 
 func _ready() -> void:
@@ -39,6 +40,10 @@ func _ready() -> void:
 	_fill = CheckBox.new()
 	_fill.text = "Fill empty slots with AI"
 	_add("Game mode", _mode)
+	_desc = UITheme.label("", 15, UITheme.MUTED)
+	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_desc.custom_minimum_size = Vector2(300, 0)
+	_add("", _desc)
 	_add("Round time", _time)
 	_add("Taggers", _taggers)
 	_add("Black holes", _holes)
@@ -48,6 +53,7 @@ func _ready() -> void:
 	refresh()
 	_mode.item_selected.connect(func(i):
 		Game.config.mode = i
+		_desc.text = Game.MODE_INFO[i]
 		_emit())
 	_time.item_selected.connect(func(i):
 		Game.config.round_time = Game.ROUND_TIMES[i]
@@ -99,6 +105,7 @@ func refresh() -> void:
 	if _mode == null:
 		return
 	_mode.selected = int(Game.config.mode)
+	_desc.text = Game.MODE_INFO[clampi(int(Game.config.mode), 0, Game.MODE_INFO.size() - 1)]
 	_time.selected = maxi(0, Game.ROUND_TIMES.find(int(Game.config.round_time)))
 	_taggers.selected = clampi(int(Game.config.get("taggers", 0)), 0, 4)
 	_count.selected = maxi(0, Game.PLAYER_COUNTS.find(int(Game.config.max_players)))

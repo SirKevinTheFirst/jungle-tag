@@ -5,7 +5,26 @@ const MODE_CLASSIC := 0
 const MODE_INFECTION := 1
 const MODE_HIDE_SEEK := 2
 const MODE_MAZE := 3
-const MODE_NAMES := ["Classic Tag", "Infection", "Jungle Hide and Seek", "Black Hole Maze Run"]
+const MODE_FREEZE := 4
+const MODE_ELIMINATION := 5
+const MODE_BOMB := 6
+const MODE_HUNT := 7
+const MODE_PAINT := 8
+const MODE_CASUAL := 9
+const MODE_NAMES := ["Classic Tag", "Infection", "Jungle Hide and Seek", "Black Hole Maze Run",
+	"Freeze Tag", "Elimination", "Bomb Tag", "Hunt", "Paintbrawl", "Casual"]
+const MODE_INFO := [
+	"Whoever is IT tags someone to pass it on. Least time as IT wins.",
+	"Tagged gorillas join the infection. Last survivor wins.",
+	"Hide while the seekers count, then don't get found.",
+	"Start in the black hole maze. Find the exit as often as you can and dodge the Shadow.",
+	"Tagged gorillas freeze. Touch a frozen friend to free them. IT wins if everyone is frozen.",
+	"Tagged gorillas are out. Last one standing wins.",
+	"IT holds a bomb. Pass it with a tag before it blows up, or you're out!",
+	"Everyone hunts their target and is hunted by someone else. Last gorilla standing wins.",
+	"Red team vs blue team, 3 lives each. Tag the other team to splat them.",
+	"No tagging. Just swing around, chat and hang out.",
+]
 const PLAYER_COUNTS := [2, 4, 6, 8, 10, 12, 16]
 const ROUND_TIMES := [60, 120, 180, 300, 480, 600]
 const BOT_ID_BASE := 100000

@@ -94,7 +94,21 @@ func _decide() -> void:
 	_sprint = true
 	if order != "" and _follow_order(my_pos):
 		return
-	if g.is_tagger():
+	if g.role == "out" or gm.mode == Game.MODE_CASUAL:
+		_sprint = false
+		if not _has_goal or my_pos.distance_to(_goal) < 3.0:
+			_wander(my_pos)
+		return
+	# who can I tag, and who can tag me? (in Hunt and Paintbrawl it's both)
+	var prey_d := INF
+	var threat_d := INF
+	for id in world.gorillas:
+		var d := my_pos.distance_to(world.gorillas[id].global_position)
+		if gm.can_tag(g.net_id, id):
+			prey_d = minf(prey_d, d)
+		if gm.can_tag(id, g.net_id):
+			threat_d = minf(threat_d, d)
+	if prey_d < INF and not (threat_d < 7.0 and threat_d < prey_d):
 		_decide_tagger(gm, my_pos)
 	else:
 		_decide_runner(gm, my_pos)
@@ -105,9 +119,9 @@ func _decide_tagger(gm: GameMode, my_pos: Vector3) -> void:
 	var best_score := INF
 	for id in world.gorillas:
 		var o: Gorilla = world.gorillas[id]
-		if o == g or o.is_tagger():
+		if not gm.can_tag(g.net_id, id):
 			continue
-		if can_see(g, o):
+		if can_see(g, o) or gm.mode == Game.MODE_HUNT:
 			_last_seen[id] = [o.global_position, _time]
 			var d := my_pos.distance_to(o.global_position)
 			if gm._no_tagback.get(g.net_id, -1) == id:
@@ -148,7 +162,7 @@ func _decide_tagger(gm: GameMode, my_pos: Vector3) -> void:
 		var nd := INF
 		for id in world.gorillas:
 			var o: Gorilla = world.gorillas[id]
-			if o != g and not o.is_tagger():
+			if gm.can_tag(g.net_id, id):
 				var d := my_pos.distance_to(o.global_position)
 				if d < nd:
 					nd = d
@@ -166,7 +180,7 @@ func _decide_runner(gm: GameMode, my_pos: Vector3) -> void:
 	var td := INF
 	for id in world.gorillas:
 		var o: Gorilla = world.gorillas[id]
-		if o == g or not o.is_tagger():
+		if not gm.can_tag(id, g.net_id):
 			continue
 		var d := my_pos.distance_to(o.global_position)
 		if d < td and (d < 6.0 or can_see(g, o)):
@@ -195,6 +209,18 @@ func _decide_runner(gm: GameMode, my_pos: Vector3) -> void:
 				return
 		_set_goal(my_pos + dir * 18.0, "flee")
 		return
+	# Freeze Tag: go thaw a frozen friend when it's safe
+	if gm.mode == Game.MODE_FREEZE and (threat == null or td > 15.0):
+		var best: Gorilla = null
+		var bd := 45.0
+		for id in world.gorillas:
+			var o: Gorilla = world.gorillas[id]
+			if o.role == "frozen" and my_pos.distance_to(o.global_position) < bd:
+				bd = my_pos.distance_to(o.global_position)
+				best = o
+		if best:
+			_set_goal(best.global_position, "rescue")
+			return
 	if hiding_mode or rng.randf() < 0.02 or _goal_kind == "hide":
 		if _hide_spot.is_empty() or (_hide_reached and rng.randf() < 0.01):
 			_hide_spot = _random_spot(my_pos, 80.0, true)
@@ -418,7 +444,7 @@ func _steer(delta: float) -> void:
 	else:
 		dir = _avoid(pos, dir)
 	_face(dir, 0.0)
-	var arrive := dist < 1.2 and _goal_kind != "chase" and _goal_kind != "flee"
+	var arrive := dist < 1.2 and not (_goal_kind in ["chase", "flee", "rescue"])
 	if not arrive:
 		inp.move = Vector2(0, 1)
 	# hop over low obstacles and off ledges

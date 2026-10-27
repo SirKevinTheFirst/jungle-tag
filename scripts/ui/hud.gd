@@ -410,6 +410,25 @@ func _update_role(me: Gorilla, gm: GameMode) -> void:
 		"hider":
 			text = "HIDER"
 			col = Color(0.3, 0.7, 0.35)
+		"frozen":
+			text = "FROZEN"
+			col = Color(0.4, 0.75, 1.0)
+		"out":
+			text = "OUT"
+			col = Color(0.4, 0.4, 0.42)
+		"hunter":
+			var t: Gorilla = world.gorillas.get(gm.hunt_target(me.net_id))
+			text = "TARGET: %s" % (t.display_name if t else "?")
+			col = Color(0.8, 0.5, 0.15)
+		"red", "blue":
+			text = "%s TEAM  LIVES %d" % [r.to_upper(), gm.lives(me.net_id)]
+			col = Color(0.85, 0.2, 0.15) if r == "red" else Color(0.2, 0.4, 0.9)
+	if gm.mode == Game.MODE_BOMB and r == "it":
+		text = "BOMB! %ds" % ceili(float(gm.extra.get("fuse", 0.0)))
+		col = Color(1.0, 0.2, 0.05) if fmod(Time.get_ticks_msec() / 250.0, 2.0) < 1.0 else Color(0.6, 0.1, 0.0)
+	if gm.mode == Game.MODE_CASUAL:
+		text = "CASUAL"
+		col = Color(0.3, 0.6, 0.8)
 	if gm.mode == Game.MODE_MAZE:
 		text = "ESCAPES: %d" % int(gm.stats.get(me.net_id, {}).get("escapes", 0))
 		col = Color(0.5, 0.3, 0.85)

@@ -540,6 +540,10 @@ func on_game_event(type: String, d: Dictionary) -> void:
 			mode.on_timer(d)
 		"tag":
 			mode.apply_tag(d)
+		"unfreeze":
+			mode.apply_unfreeze(d)
+		"boom":
+			mode.apply_boom(d)
 		"round_end":
 			mode.on_round_end(d)
 		"camo":

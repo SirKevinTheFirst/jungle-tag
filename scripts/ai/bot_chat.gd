@@ -62,6 +62,8 @@ const LINES := {
 	"in_hole": ["AAAAA", "IM IN THE HOLE", "wheeeee", "uh oh", "brb maze"],
 	"escaped": ["IM OUT", "escaped ez", "made it out", "W", "freedom"],
 	"caught": ["the shadow got me", "NOOO the shadow", "bro the shadow is so fast", "back to start rip"],
+	"boom": ["BOOM", "noooo i blew up", "i was so close", "who gave me the bomb", "rip me"],
+	"thawed": ["ty %s", "thanks %s!!", "im free", "ur a hero %s"],
 	"boost": ["ZOOM", "im so fast", "banana power", "catch me now lol", "speeeed"],
 	"rain": ["its raining again", "rain lol", "i love the rain", "wet monke"],
 	"sun": ["sun is back", "finally sun", "its sunny now"],
@@ -325,6 +327,13 @@ func on_event(type: String, d: Dictionary) -> void:
 		"maze_caught":
 			if Game.is_bot_id(int(d.id)) and randf() < 0.6:
 				_say(int(d.id), "caught", {}, 0.5)
+		"boom":
+			for id in d.get("ids", []):
+				if Game.is_bot_id(int(id)):
+					_say(int(id), "boom", {}, 0.4)
+		"unfreeze":
+			if Game.is_bot_id(int(d.id)) and randf() < 0.5:
+				_say(int(d.id), "thawed", {"s": _name(int(d.by))}, 0.4)
 		"banana_boost":
 			if Game.is_bot_id(int(d.id)):
 				_say(int(d.id), "boost", {}, 0.4)
